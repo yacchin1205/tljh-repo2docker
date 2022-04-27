@@ -56,7 +56,8 @@ async def list_containers():
 
 async def build_image(
     repo, ref, name="", memory=None, cpu=None, username=None, password=None,
-    extra_buildargs=None
+    extra_buildargs=None, repo2docker_image=None, optional_envs=None, default_image_name=None,
+    optional_labels=None
 ):
     """
     Build an image given a repo, ref and limits
@@ -67,9 +68,12 @@ async def build_image(
 
     # default to the repo name if no name specified
     # and sanitize the name of the docker image
-    name = name or urlparse(repo).path.strip("/")
-    name = name.lower().replace("/", "-")
-    image_name = f"{name}:{ref}"
+    if default_image_name is not None:
+        image_name = name = default_image_name
+    else:
+        name = name or urlparse(repo).path.strip("/")
+        name = name.lower().replace("/", "-")
+        image_name = f"{name}:{ref}"
 
     # memory is specified in GB
     memory = f"{memory}G" if memory else ""
@@ -82,6 +86,9 @@ async def build_image(
         f"tljh_repo2docker.mem_limit={memory}",
         f"tljh_repo2docker.cpu_limit={cpu}",
     ]
+    if optional_labels is not None:
+        labels += [f"tljh_repo2docker.opt.{k}={v}" for k, v in optional_labels.items()]
+
     cmd = [
         "jupyter-repo2docker",
         "--ref",
@@ -108,10 +115,14 @@ async def build_image(
         ]
 
     cmd.append(repo)
+    envs = []
+    if optional_envs is not None:
+        for k, v in optional_envs.items():
+            envs.append(f'{k}={v}')
 
     config = {
         "Cmd": cmd,
-        "Image": "quay.io/jupyterhub/repo2docker:main",
+        "Image": repo2docker_image or "quay.io/jupyterhub/repo2docker:main",
         "Labels": {
             "repo2docker.repo": repo,
             "repo2docker.ref": ref,
@@ -126,6 +137,7 @@ async def build_image(
                 "mode": "rw",
             }
         },
+        "Env": envs,
         "HostConfig": {
             "Binds": ["/var/run/docker.sock:/var/run/docker.sock"],
         },

@@ -29,7 +29,12 @@ sudo docker pull gcr.io/nii-ap-ops/rdmfs:20211221
 curl https://raw.githubusercontent.com/jupyterhub/the-littlest-jupyterhub/master/bootstrap/bootstrap.py \
   | sudo python3 - \
     --admin test:test \
-    --plugin git+https://github.com/plasmabio/tljh-repo2docker@master
+    --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
+
+# fix to use the RCOSDP's one as binderhub package.
+sudo /opt/tljh/hub/bin/python -m pip install --upgrade git+https://github.com/RCOSDP/CS-binderhub.git
+# restart TLJH
+sudo systemctl restart jupyterhub
 ```
 
 Refer to [The Littlest JupyterHub documentation](http://tljh.jupyter.org/en/latest/topic/customizing-installer.html?highlight=plugins#installing-tljh-plugins)

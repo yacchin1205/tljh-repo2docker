@@ -1,0 +1,88 @@
+import json
+import re
+
+from aiodocker import Docker, DockerError
+from jupyterhub.handlers.base import BaseHandler
+from tornado import web
+
+from .docker import build_image
+from .token import TokenStore
+
+
+class LaunchHandler(BaseHandler):
+    """
+    Handle requests from GRDM to build user environments as Docker images
+    """
+    def initialize(self, repo_providers, token_store_path):
+        self.repo_providers = repo_providers
+        self.token_store = TokenStore(dbpath=token_store_path)
+
+    @web.authenticated
+    async def get(self, provider_prefix):
+        from binderhub.builder import _safe_build_slug, _generate_build_name
+
+        current_user = await self.get_current_user()
+        spec = self._get_spec_from_request(provider_prefix)
+        spec = spec.rstrip("/")
+        provider = self._get_provider(provider_prefix, spec)
+        repo = provider.get_repo_url()
+        ref = await provider.get_resolved_ref()
+
+        image_prefix = ''
+        safe_build_slug = _safe_build_slug(provider.get_build_slug(), limit=255 - len(image_prefix))
+        build_name = _generate_build_name(provider.get_build_slug(), ref, prefix='build-')
+        image_name = self.image_name = '{prefix}{build_slug}:{ref}'.format(
+            prefix=image_prefix,
+            build_slug=safe_build_slug,
+            ref=ref
+        ).replace('_', '-').lower()
+        memory = None
+        cpu = None
+        buildargs = None
+        username = None
+        password = None
+        repo_token = self.get_argument('repo_token', None)
+        urlpath = self.get_argument('urlpath', None)
+        if not repo:
+            raise web.HTTPError(400, "Repository is empty")
+        self.token_store.set(current_user, repo, repo_token)
+
+        optional_labels = {
+            'provider': provider_prefix,
+            'repo': repo,
+            'ref': ref,
+            'builder': current_user.name,
+            'urlpath': urlpath,
+        }
+        for key, values in self.request.query_arguments.items():
+            if not key.startswith('useropt.'):
+                continue
+            self.log.info(f"extra_args: {key}={values}")
+            optional_labels["user." + key[8:]] = "\t".join([v.decode("utf8") for v in values])
+
+        await build_image(
+            repo, ref, '', memory, cpu, username, password, [],
+            default_image_name=image_name,
+            repo2docker_image='gcr.io/nii-ap-ops/repo2docker:20220330',
+            optional_envs=provider.get_optional_envs(access_token=repo_token),
+            optional_labels=optional_labels,
+        )
+
+        self.redirect('/hub/environments')
+
+    def _get_provider(self, provider_prefix, spec):
+        """Construct a provider object"""
+        if provider_prefix not in self.repo_providers:
+            raise web.HTTPError(404, "No provider found for prefix %s" % provider_prefix)
+
+        return self.repo_providers[provider_prefix](
+            config=self.settings['app'].config, spec=spec)
+
+    def _get_spec_from_request(self, prefix):
+        """Re-extract spec from request.path.
+        Get the original, raw spec, without tornado's unquoting.
+        This is needed because tornado converts 'foo%2Fbar/ref' to 'foo/bar/ref'.
+        """
+        idx = self.request.path.index(prefix)
+        spec = self.request.path[idx + len(prefix) + 1:]
+        return spec

@@ -17,14 +17,24 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
 sudo apt update && sudo apt install -y docker-ce
 
+curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+sudo apt update && sudo apt install -y nodejs libfuse-dev python3-dev libcurl4-openssl-dev libssl-dev
+sudo modprobe fuse
+
 # pull the repo2docker image
-sudo docker pull quay.io/jupyterhub/repo2docker:main
+sudo docker pull gcr.io/nii-ap-ops/repo2docker:20220330
+sudo docker pull gcr.io/nii-ap-ops/rdmfs:20211221
 
 # install TLJH
 curl https://raw.githubusercontent.com/jupyterhub/the-littlest-jupyterhub/master/bootstrap/bootstrap.py \
   | sudo python3 - \
     --admin test:test \
-    --plugin git+https://github.com/plasmabio/tljh-repo2docker@master
+    --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
+
+# fix to use the RCOSDP's one as binderhub package.
+sudo /opt/tljh/hub/bin/python -m pip install --upgrade git+https://github.com/RCOSDP/CS-binderhub.git
+# restart TLJH
+sudo systemctl restart jupyterhub
 ```
 
 Refer to [The Littlest JupyterHub documentation](http://tljh.jupyter.org/en/latest/topic/customizing-installer.html?highlight=plugins#installing-tljh-plugins)

@@ -48,11 +48,25 @@ class SpawnerMixin(Configurable):
                 font-weight: normal;
             }
         </style>
+        <script>
+            setTimeout(function() {
+                selectServers();
+            }, 100);
+
+            function selectServers() {
+                if (!window.location.hash.match(/^#.+/)) {
+                    return;
+                }
+                const ref = window.location.hash.match(/^#(.+)$/)[1];
+                $("input[image-data='" + ref + "']").prop('checked', true);
+                console.log(ref);
+            }
+        </script>
         <div class='form-group' id='image-list'>
         {% for image in image_list %}
         <label for='image-item-{{ loop.index0 }}' class='form-control input-group'>
             <div class='col-md-1'>
-                <input type='radio' name='image' id='image-item-{{ loop.index0 }}' value='{{ image.image_name }}' />
+                <input type='radio' name='image' image-data='{{ image.spawnref }}' id='image-item-{{ loop.index0 }}' value='{{ image.image_name }}' />
             </div>
             <div class='col-md-11'>
                 <strong>{{ image.display_name }}</strong>
@@ -62,14 +76,6 @@ class SpawnerMixin(Configurable):
                     </div>
                     <div class='col-md-8'>
                         <a href="{{ image.repo }}" target="_blank">{{ image.repo }}</a>
-                    </div>
-                </div>
-                <div class='row image-info'>
-                    <div class='col-md-4'>
-                        Reference:
-                    </div>
-                    <div class='col-md-8'>
-                        <a href="{{ image.repo }}/tree/{{ image.ref }}" target="_blank">{{ image.ref }}</a>
                     </div>
                 </div>
                 <div class='row image-info'>

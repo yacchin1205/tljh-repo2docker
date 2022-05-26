@@ -1,9 +1,11 @@
+from datetime import datetime
 import json
 import re
 
 from aiodocker import Docker, DockerError
 from jupyterhub.handlers.base import BaseHandler
 from tornado import web
+from tornado.httpclient import AsyncHTTPClient
 
 from .docker import build_image
 from .token import TokenStore
@@ -59,6 +61,7 @@ class LaunchHandler(BaseHandler):
                 continue
             self.log.info(f"extra_args: {key}={values}")
             optional_labels["user." + key[8:]] = "\t".join([v.decode("utf8") for v in values])
+        optional_labels = await self._modify_labels(optional_labels, repo_token)
 
         await build_image(
             repo, ref, '', memory, cpu, username, password, [],
@@ -86,3 +89,26 @@ class LaunchHandler(BaseHandler):
         idx = self.request.path.index(prefix)
         spec = self.request.path[idx + len(prefix) + 1:]
         return spec
+
+    async def _modify_labels(self, labels, repo_token):
+        if 'provider' not in labels:
+            return labels
+        if labels['provider'] != 'rdm':
+            return labels
+        node_api_url = labels['user.rdm_node']
+        http_client = AsyncHTTPClient()
+        try:
+            headers = {
+                'Authorization': f'Bearer {repo_token}',
+            }
+            response = await http_client.fetch(node_api_url, headers=headers)
+            node_data = json.loads(response.body)
+            node_title = node_data['data']['attributes']['title']
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            labels['provider.display_name'] = f'{node_title} - {now}'
+            labels['provider.repo'] = node_data['data']['links']['html']
+            labels['provider.ref_url'] = labels['provider.repo']
+        except Exception as e:
+            self.log.exception(f'Cannot retrieve GRDM repository: {node_api_url}')
+            raise web.HTTPError(500, "Cannot retrieve GRDM repository")
+        return labels

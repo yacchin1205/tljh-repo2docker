@@ -1,8 +1,23 @@
 import json
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 
 from aiodocker import Docker
+
+
+def get_optional_value(object, key):
+    labels = object['Labels']
+    abskey = f'tljh_repo2docker.opt.provider.{key}'
+    if abskey not in labels:
+        return None
+    return labels[abskey]
+
+
+def get_spawn_ref(object):
+    labels = object['Labels']
+    repo = labels["repo2docker.repo"]
+    ref = labels["repo2docker.ref"]
+    return quote_plus(f'{repo}#{ref}')
 
 
 async def list_images():
@@ -15,10 +30,11 @@ async def list_images():
         )
     images = [
         {
-            "repo": image["Labels"]["repo2docker.repo"],
+            "repo": get_optional_value(image, 'repo') or image["Labels"]["repo2docker.repo"],
             "ref": image["Labels"]["repo2docker.ref"],
+            "spawnref": get_spawn_ref(image),
             "image_name": image["Labels"]["tljh_repo2docker.image_name"],
-            "display_name": image["Labels"]["tljh_repo2docker.display_name"],
+            "display_name": get_optional_value(image, 'display_name') or image["Labels"]["tljh_repo2docker.display_name"],
             "mem_limit": image["Labels"]["tljh_repo2docker.mem_limit"],
             "cpu_limit": image["Labels"]["tljh_repo2docker.cpu_limit"],
             "status": "built",
@@ -40,10 +56,11 @@ async def list_containers():
         )
     containers = [
         {
-            "repo": container["Labels"]["repo2docker.repo"],
+            "repo": get_optional_value(container, 'repo') or container["Labels"]["repo2docker.repo"],
             "ref": container["Labels"]["repo2docker.ref"],
+            "spawnref": get_spawn_ref(container),
             "image_name": container["Labels"]["repo2docker.build"],
-            "display_name": container["Labels"]["tljh_repo2docker.display_name"],
+            "display_name": get_optional_value(container, 'display_name') or container["Labels"]["tljh_repo2docker.display_name"],
             "mem_limit": container["Labels"]["tljh_repo2docker.mem_limit"],
             "cpu_limit": container["Labels"]["tljh_repo2docker.cpu_limit"],
             "status": "building",
@@ -86,8 +103,18 @@ async def build_image(
         f"tljh_repo2docker.mem_limit={memory}",
         f"tljh_repo2docker.cpu_limit={cpu}",
     ]
+
+    builder_labels = {
+        "repo2docker.repo": repo,
+        "repo2docker.ref": ref,
+        "repo2docker.build": image_name,
+        "tljh_repo2docker.display_name": name,
+        "tljh_repo2docker.mem_limit": memory,
+        "tljh_repo2docker.cpu_limit": cpu,
+    }
     if optional_labels is not None:
         labels += [f"tljh_repo2docker.opt.{k}={v}" for k, v in optional_labels.items()]
+        builder_labels.update(dict([(f"tljh_repo2docker.opt.{k}", v) for k, v in optional_labels.items()]))
 
     cmd = [
         "jupyter-repo2docker",
@@ -123,14 +150,7 @@ async def build_image(
     config = {
         "Cmd": cmd,
         "Image": repo2docker_image or "quay.io/jupyterhub/repo2docker:main",
-        "Labels": {
-            "repo2docker.repo": repo,
-            "repo2docker.ref": ref,
-            "repo2docker.build": image_name,
-            "tljh_repo2docker.display_name": name,
-            "tljh_repo2docker.mem_limit": memory,
-            "tljh_repo2docker.cpu_limit": cpu,
-        },
+        "Labels": builder_labels,
         "Volumes": {
             "/var/run/docker.sock": {
                 "bind": "/var/run/docker.sock",

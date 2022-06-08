@@ -3,7 +3,6 @@ import re
 
 from aiodocker import Docker, DockerError
 from jupyterhub.apihandlers import APIHandler
-from jupyterhub.utils import admin_only
 from tornado import web
 
 from .docker import build_image
@@ -17,7 +16,6 @@ class BuildHandler(APIHandler):
     """
 
     @web.authenticated
-    @admin_only
     async def delete(self):
         data = self.get_json_body()
         name = data["name"]
@@ -31,7 +29,6 @@ class BuildHandler(APIHandler):
         self.finish(json.dumps({"status": "ok"}))
 
     @web.authenticated
-    @admin_only
     async def post(self):
         data = self.get_json_body()
         repo = data["repo"]

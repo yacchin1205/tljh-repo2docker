@@ -1,3 +1,4 @@
+import json
 import os
 
 from aiodocker import Docker
@@ -390,21 +391,25 @@ def tljh_custom_jupyterhub_config(c):
         'rdm': RDMProvider,
         'weko3': WEKO3Provider,
     }
-    c.RDMProvider.hosts = [
+    rdm_provider_hosts = [
         {
             'hostname': ["https://osf.io/"],
             'api': "https://api.osf.io/v2/"
         },
         {
-            'hostname': ["https://bh.rdm.yzwlab.com/"],
-            'api': "https://api.bh.rdm.yzwlab.com/v2/",
+            'hostname': ["https://rdm.nii.ac.jp"],
+            'api': "https://api.rdm.nii.ac.jp/v2/",
         },
         {
             'hostname': ["https://rcos.rdm.nii.ac.jp"],
             'api': "https://api.rcos.rdm.nii.ac.jp/v2/",
         },
     ]
-    
+    custom_hosts = os.environ.get('REPO2DOCKER_RDM_PROVIDER_HOSTS', None)
+    if custom_hosts is not None:
+        rdm_provider_hosts = json.loads(custom_hosts)
+    c.RDMProvider.hosts = rdm_provider_hosts
+
     # register the handlers to manage the user images
     c.JupyterHub.extra_handlers.extend(
         [

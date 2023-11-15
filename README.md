@@ -17,12 +17,12 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
 sudo apt update && sudo apt install -y docker-ce
 
-curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 sudo apt update && sudo apt install -y nodejs libfuse-dev python3-dev libcurl4-openssl-dev libssl-dev
-sudo modprobe fuse
+sudo corepack enable && sudo modprobe fuse
 
 # pull the repo2docker image
-sudo docker pull gcr.io/nii-ap-ops/repo2docker:20220330
+sudo docker pull gcr.io/nii-ap-ops/repo2docker:20231102
 sudo docker pull gcr.io/nii-ap-ops/rdmfs:20211221
 
 # install TLJH

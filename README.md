@@ -22,8 +22,8 @@ sudo apt update && sudo apt install -y nodejs libfuse-dev python3-dev libcurl4-o
 sudo modprobe fuse
 
 # pull the repo2docker image
-sudo docker pull gcr.io/nii-ap-ops/repo2docker:20220330
-sudo docker pull gcr.io/nii-ap-ops/rdmfs:20211221
+sudo docker pull gcr.io/nii-ap-ops/repo2docker:20231102
+sudo docker pull gcr.io/nii-ap-ops/rdmfs:20230802
 
 # install TLJH
 curl https://raw.githubusercontent.com/jupyterhub/the-littlest-jupyterhub/master/bootstrap/bootstrap.py \

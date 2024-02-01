@@ -13,40 +13,43 @@ During the [TLJH installation process](http://tljh.jupyter.org/en/latest/install
 
 # install Docker
 sudo apt update
-sudo apt install ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
+sudo apt install -y ca-certificates curl gnupg
+sudo mkdir -m 0755 /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-# Add the repository to Apt sources:
 echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list
 sudo apt update
-sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg
-sudo mkdir -p /etc/apt/keyrings
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo apt-get update
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+sudo chmod a+r /etc/apt/keyrings/nodesource.gpg
 
-NODE_MAJOR=20
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
 
+
+NODE_MAJOR=21
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | \
+ sudo tee /etc/apt/sources.list.d/nodesource.list
 sudo apt update
-sudo apt install -y nodejs libfuse-dev python3-dev libcurl4-openssl-dev libssl-dev
+sudo apt install -y nodejs python3-dev libcurl4-openssl-dev
+sudo modprobe fuse
 
 # pull the repo2docker image
 sudo docker pull gcr.io/nii-ap-ops/repo2docker:20231102
 sudo docker pull gcr.io/nii-ap-ops/rdmfs:20230802
 
+# install yarn
 sudo npm install -g yarn
 
 # install TLJH
 curl https://raw.githubusercontent.com/jupyterhub/the-littlest-jupyterhub/master/bootstrap/bootstrap.py \
   | sudo python3 - \
-    --admin test:test \
+    --admin test:test  \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
 
 # fix to use the RCOSDP's one as binderhub package.

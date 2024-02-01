@@ -49,7 +49,7 @@ sudo npm install -g yarn
 # install TLJH
 curl https://raw.githubusercontent.com/jupyterhub/the-littlest-jupyterhub/master/bootstrap/bootstrap.py \
   | sudo python3 - \
-    --admin test:test  \
+    --admin test:test \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
 
 # fix to use the RCOSDP's one as binderhub package.
@@ -60,7 +60,6 @@ sudo systemctl restart jupyterhub
 
 Refer to [The Littlest JupyterHub documentation](http://tljh.jupyter.org/en/latest/topic/customizing-installer.html?highlight=plugins#installing-tljh-plugins)
 for more info on installing TLJH plugins.
-
 
 ## Usage
 

@@ -12,18 +12,39 @@ During the [TLJH installation process](http://tljh.jupyter.org/en/latest/install
 #!/bin/bash
 
 # install Docker
-sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
-sudo apt update && sudo apt install -y docker-ce
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
+sudo mkdir -m 0755 /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
-sudo apt update && sudo apt install -y nodejs libfuse-dev python3-dev libcurl4-openssl-dev libssl-dev
+echo \
+  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt update
+
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo apt-get update
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+sudo chmod a+r /etc/apt/keyrings/nodesource.gpg
+
+
+
+NODE_MAJOR=21
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | \
+ sudo tee /etc/apt/sources.list.d/nodesource.list
+sudo apt update
+sudo apt install -y nodejs python3-dev libcurl4-openssl-dev
 sudo modprobe fuse
 
 # pull the repo2docker image
-sudo docker pull gcr.io/nii-ap-ops/repo2docker:20220330
-sudo docker pull gcr.io/nii-ap-ops/rdmfs:20211221
+sudo docker pull gcr.io/nii-ap-ops/repo2docker:20231102
+sudo docker pull gcr.io/nii-ap-ops/rdmfs:20230802
+
+# install yarn
+sudo npm install -g yarn
 
 # install TLJH
 curl https://raw.githubusercontent.com/jupyterhub/the-littlest-jupyterhub/master/bootstrap/bootstrap.py \
@@ -39,7 +60,6 @@ sudo systemctl restart jupyterhub
 
 Refer to [The Littlest JupyterHub documentation](http://tljh.jupyter.org/en/latest/topic/customizing-installer.html?highlight=plugins#installing-tljh-plugins)
 for more info on installing TLJH plugins.
-
 
 ## Usage
 

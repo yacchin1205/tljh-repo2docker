@@ -72,9 +72,18 @@ async def list_containers():
 
 
 async def build_image(
-    repo, ref, name="", memory=None, cpu=None, username=None, password=None,
-    extra_buildargs=None, repo2docker_image=None, optional_envs=None, default_image_name=None,
-    optional_labels=None
+    repo,
+    ref,
+    name="",
+    memory=None,
+    cpu=None,
+    username=None,
+    password=None,
+    extra_buildargs=None,
+    repo2docker_image=None,
+    optional_envs=None,
+    default_image_name=None,
+    optional_labels=None,
 ):
     """
     Build an image given a repo, ref and limits
@@ -130,16 +139,10 @@ async def build_image(
     ]
 
     for label in labels:
-        cmd += [
-            "--label",
-            label
-        ]
+        cmd += ["--label", label]
 
     for barg in extra_buildargs or []:
-        cmd += [
-            "--build-arg",
-            barg
-        ]
+        cmd += ["--build-arg", barg]
 
     cmd.append(repo)
     envs = []

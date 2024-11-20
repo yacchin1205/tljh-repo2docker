@@ -6,31 +6,30 @@ from aiodocker.exceptions import DockerError
 from dockerspawner import DockerSpawner
 from docker.errors import APIError
 from docker.types import Mount
-from jinja2 import Environment, BaseLoader
+from jinja2 import BaseLoader, Environment
 from jupyter_client.localinterfaces import public_ips
-from jupyterhub.handlers.static import CacheControlStaticFilesHandler
 from jupyterhub.traitlets import ByteSpecification
-from tljh.hooks import hookimpl
-from tljh.configurer import load_config
 from traitlets import Unicode
 from traitlets.config import Configurable
 from tornado import web
 
-from .builder import BuildHandler
-from .launcher import LaunchHandler
-from .docker import list_images
-from .images import ImagesHandler
-from .logs import LogsHandler
-from .token import TokenStore
+try:
+    from tljh.hooks import hookimpl
+except ModuleNotFoundError:
+    hookimpl = None
 
+from .docker import list_images
+from .token import TokenStore
+from .launcher_deprecated import LaunchRedirectHandler
 
 # Default CPU period
 # See: https://docs.docker.com/config/containers/resource_constraints/#limit-a-containers-access-to-memory#configure-the-default-cfs-scheduler
 CPU_PERIOD = 100_000
 
+TLJH_R2D_ADMIN_SCOPE = "custom:tljh_repo2docker:admin"
+
 
 class SpawnerMixin(Configurable):
-
     """
     Mixin for spawners that derive from DockerSpawner, to use local Docker images
     built with tljh-repo2docker.
@@ -132,7 +131,10 @@ class SpawnerMixin(Configurable):
         """
         Override the default form to handle the case when there is only one image.
         """
-        images = await self.list_images()
+        try:
+            images = await self.list_images()
+        except ValueError:
+            images = []
 
         # make default limits human readable
         default_mem_limit = self.mem_limit
@@ -163,13 +165,12 @@ class SpawnerMixin(Configurable):
         imagename = self.user_options.get("image")
         async with Docker() as docker:
             image = await docker.images.inspect(imagename)
-
-        mem_limit = image["ContainerConfig"]["Labels"].get(
-            "tljh_repo2docker.mem_limit", None
-        )
-        cpu_limit = image["ContainerConfig"]["Labels"].get(
-            "tljh_repo2docker.cpu_limit", None
-        )
+        config = image.get("ContainerConfig", None)
+        if not config:
+            config = image.get("Config", {})
+        label = config.get("Labels", {})
+        mem_limit = label.get("tljh_repo2docker.mem_limit", None)
+        cpu_limit = label.get("tljh_repo2docker.cpu_limit", None)
 
         # override the spawner limits if defined in the image
         if mem_limit:
@@ -193,7 +194,8 @@ class SpawnerMixin(Configurable):
         async with Docker() as docker:
             image = await docker.images.inspect(imagename)
         
-        provider_prefix = image["ContainerConfig"]["Labels"].get(
+        labels = self._get_image_labels(image)
+        provider_prefix = labels.get(
             "tljh_repo2docker.opt.provider", None
         )
         if provider_prefix != 'rdm':
@@ -201,7 +203,13 @@ class SpawnerMixin(Configurable):
         await self._set_rdm_mounts(image)
 
     async def _set_rdm_mounts(self, image):
-        repo = image["ContainerConfig"]["Labels"].get(
+        labels = self._get_image_labels(image)
+        provider_prefix = labels.get(
+            "tljh_repo2docker.opt.provider", None
+        )
+        if provider_prefix != 'rdm':
+            return
+        repo = labels.get(
             "tljh_repo2docker.opt.repo", None
         )
         token_store = TokenStore(dbpath=self.token_store_path)
@@ -222,10 +230,10 @@ class SpawnerMixin(Configurable):
         if rdmfs_id is not None:
             await self.remove_object_by_id(rdmfs_id)
         rdmfs_id = await self.create_rdmfs_object({
-            'RDM_NODE_ID': image["ContainerConfig"]["Labels"].get(
+            'RDM_NODE_ID': labels.get(
                 "tljh_repo2docker.opt.user.rdm_node_id", None
             ),
-            'RDM_API_URL': image["ContainerConfig"]["Labels"].get(
+            'RDM_API_URL': labels.get(
                 "tljh_repo2docker.opt.user.rdm_api_url", None
             ),
             'RDM_TOKEN': repo_token,
@@ -315,6 +323,12 @@ class SpawnerMixin(Configurable):
             else:
                 raise
 
+    def _get_image_labels(self, image):
+        config = image.get("ContainerConfig", None)
+        if not config:
+            config = image.get("Config", {})
+        return config.get("Labels", {})
+
 
 class Repo2DockerSpawner(SpawnerMixin, DockerSpawner):
     """
@@ -342,102 +356,46 @@ class Repo2DockerSpawner(SpawnerMixin, DockerSpawner):
         await self.remove_object_by_id(rdmfs_id)
 
 
-@hookimpl
-def tljh_custom_jupyterhub_config(c):
-    from binderhub.repoproviders import (
-        GitHubRepoProvider, GitRepoProvider, GitLabRepoProvider, GistRepoProvider,
-        ZenodoProvider, FigshareProvider, HydroshareProvider, DataverseProvider,
-        RDMProvider, WEKO3Provider,
-    )
+if hookimpl:
 
-    # hub
-    c.JupyterHub.hub_ip = public_ips()[0]
-    c.JupyterHub.cleanup_servers = False
-    c.JupyterHub.spawner_class = Repo2DockerSpawner
+    @hookimpl
+    def tljh_custom_jupyterhub_config(c):
+        from .custom_providers import token_store_path
 
-    # add extra templates for the service UI
-    c.JupyterHub.template_paths.insert(
-        0, os.path.join(os.path.dirname(__file__), "templates")
-    )
+        # hub
+        c.JupyterHub.hub_ip = public_ips()[0]
+        c.JupyterHub.cleanup_servers = False
+        c.JupyterHub.spawner_class = Repo2DockerSpawner
 
-    token_store_path = '/opt/tljh/state/repo2docker.sqlite'
+        # spawner
+        c.DockerSpawner.cmd = ["jupyterhub-singleuser"]
+        c.DockerSpawner.pull_policy = "Never"
+        c.DockerSpawner.remove = True
+        c.Repo2DockerSpawner.rdmfs_base_path = '/opt/tljh/repo2docker/volumes'
+        c.Repo2DockerSpawner.token_store_path = token_store_path
 
-    # spawner
-    c.DockerSpawner.cmd = ["jupyterhub-singleuser"]
-    c.DockerSpawner.pull_policy = "Never"
-    c.DockerSpawner.remove = True
-    c.Repo2DockerSpawner.rdmfs_base_path = '/opt/tljh/repo2docker/volumes'
-    c.Repo2DockerSpawner.token_store_path = token_store_path
+        # Launch Handler for backward compatibility
+        # Since c.JupyterHub.extra_handlers is deprecated,
+        # please specify http://hostname/services/tljh-repo2docker instead of http://hostname
+        # as a BinderHub URL when registering to GakuNin RDM.
+        c.JupyterHub.extra_handlers.extend(
+            [
+                (
+                    r"build/([^/]+)/[^/]+/[^/]+",
+                    LaunchRedirectHandler,
+                ),
+            ]
+        )
 
-    # fetch limits from the TLJH config
-    tljh_config = load_config()
-    limits = tljh_config["limits"]
-    cpu_limit = limits["cpu"]
-    mem_limit = limits["memory"]
-
-    c.JupyterHub.tornado_settings.update(
-        {"default_cpu_limit": cpu_limit, "default_mem_limit": mem_limit}
-    )
-
-    repo_providers = {
-        'gh': GitHubRepoProvider,
-        'gist': GistRepoProvider,
-        'git': GitRepoProvider,
-        'gl': GitLabRepoProvider,
-        'zenodo': ZenodoProvider,
-        'figshare': FigshareProvider,
-        'hydroshare': HydroshareProvider,
-        'dataverse': DataverseProvider,
-        'rdm': RDMProvider,
-        'weko3': WEKO3Provider,
-    }
-    rdm_provider_hosts = [
-        {
-            'hostname': ["https://osf.io/"],
-            'api': "https://api.osf.io/v2/"
-        },
-        {
-            'hostname': ["https://rdm.nii.ac.jp"],
-            'api': "https://api.rdm.nii.ac.jp/v2/",
-        },
-        {
-            'hostname': ["https://rcos.rdm.nii.ac.jp"],
-            'api': "https://api.rcos.rdm.nii.ac.jp/v2/",
-        },
-    ]
-    custom_hosts = os.environ.get('REPO2DOCKER_RDM_PROVIDER_HOSTS', None)
-    if custom_hosts is not None:
-        rdm_provider_hosts = json.loads(custom_hosts)
-    c.RDMProvider.hosts = rdm_provider_hosts
-
-    # register the handlers to manage the user images
-    c.JupyterHub.extra_handlers.extend(
-        [
-            (r"environments", ImagesHandler),
-            (r"api/environments", BuildHandler),
-            (r"api/environments/([^/]+)/logs", LogsHandler),
-            (
-                r"build/([^/]+)/[^/]+/[^/]+",
-                LaunchHandler,
-                {
-                    "repo_providers": repo_providers,
-                    "token_store_path": token_store_path,
-                },
-            ),
-            (
-                r"environments-static/(.*)",
-                CacheControlStaticFilesHandler,
-                {"path": os.path.join(os.path.dirname(__file__), "static")},
-            ),
+    @hookimpl
+    def tljh_extra_hub_pip_packages():
+        return [
+            "dockerspawner~=12.1",
+            "jupyter_client~=6.1,<8",
+            "aiodocker~=0.19",
+            "git+https://github.com/RCOSDP/CS-binderhub.git",
         ]
-    )
 
-
-@hookimpl
-def tljh_extra_hub_pip_packages():
-    return [
-        "dockerspawner~=12.1",
-        "jupyter_client~=6.1",
-        "aiodocker~=0.19",
-        "git+https://github.com/RCOSDP/CS-binderhub.git",
-    ]
+else:
+    tljh_custom_jupyterhub_config = None
+    tljh_extra_hub_pip_packages = None

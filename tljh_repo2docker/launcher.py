@@ -1,9 +1,11 @@
 from datetime import datetime
 import json
+import os
 import re
 
+from traitlets.config import Config
+from .base import BaseHandler, require_admin_role
 from aiodocker import Docker, DockerError
-from jupyterhub.handlers.base import BaseHandler
 from tornado import web
 from tornado.httpclient import AsyncHTTPClient
 
@@ -16,14 +18,17 @@ class LaunchHandler(BaseHandler):
     Handle requests from GRDM to build user environments as Docker images
     """
     def initialize(self, repo_providers, token_store_path):
+        self.log = self.settings['log']
+        self.service_prefix = self.settings['service_prefix']
         self.repo_providers = repo_providers
         self.token_store = TokenStore(dbpath=token_store_path)
 
     @web.authenticated
+    @require_admin_role
     async def get(self, provider_prefix):
         from binderhub.builder import _safe_build_slug, _generate_build_name
 
-        current_user = await self.get_current_user()
+        current_user = await self.fetch_user()
         spec = self._get_spec_from_request(provider_prefix)
         spec = spec.rstrip("/")
         provider = self._get_provider(provider_prefix, spec)
@@ -71,15 +76,34 @@ class LaunchHandler(BaseHandler):
             optional_labels=optional_labels,
         )
 
-        self.redirect('/hub/environments')
+        self.redirect(f'{self.service_prefix}environments')
 
     def _get_provider(self, provider_prefix, spec):
         """Construct a provider object"""
         if provider_prefix not in self.repo_providers:
             raise web.HTTPError(404, "No provider found for prefix %s" % provider_prefix)
 
+        c = Config()
+        rdm_provider_hosts = [
+            {
+                'hostname': ["https://osf.io/"],
+                'api': "https://api.osf.io/v2/"
+            },
+            {
+                'hostname': ["https://rdm.nii.ac.jp"],
+                'api': "https://api.rdm.nii.ac.jp/v2/",
+            },
+            {
+                'hostname': ["https://rcos.rdm.nii.ac.jp"],
+                'api': "https://api.rcos.rdm.nii.ac.jp/v2/",
+            },
+        ]
+        custom_hosts = os.environ.get('REPO2DOCKER_RDM_PROVIDER_HOSTS', None)
+        if custom_hosts is not None:
+            rdm_provider_hosts = json.loads(custom_hosts)
+        c.RDMProvider.hosts = rdm_provider_hosts
         return self.repo_providers[provider_prefix](
-            config=self.settings['app'].config, spec=spec)
+            config=c, spec=spec)
 
     def _get_spec_from_request(self, prefix):
         """Re-extract spec from request.path.

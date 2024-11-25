@@ -44,7 +44,7 @@ sudo apt install -y nodejs python3-dev libcurl4-openssl-dev
 sudo modprobe fuse
 
 # pull the repo2docker image
-sudo docker pull gcr.io/nii-ap-ops/repo2docker:20231102
+sudo docker pull gcr.io/nii-ap-ops/repo2docker:2024.10.0
 sudo docker pull gcr.io/nii-ap-ops/rdmfs:20230802
 
 # install yarn

@@ -280,7 +280,7 @@ class SpawnerMixin(Configurable):
             Privileged=True,
         )
         create_kwargs = dict(
-            Image='gcr.io/nii-ap-ops/rdmfs:20230802',
+            Image='gcr.io/nii-ap-ops/rdmfs:2024.12.0',
             Env=[f'{k}={v}' for k, v in env.items()],
             AutoRemove=True,
             HostConfig=host_config,

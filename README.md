@@ -16,39 +16,27 @@ During the [TLJH installation process](http://tljh.jupyter.org/en/latest/install
 #!/bin/bash
 
 # install Docker
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg
-sudo mkdir -m 0755 /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-echo \
-  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list
-sudo apt update
-
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+sudo apt update && sudo apt install -y docker-ce
 
 sudo apt-get update
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 sudo chmod a+r /etc/apt/keyrings/nodesource.gpg
 
-
-
 NODE_MAJOR=21
 echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | \
  sudo tee /etc/apt/sources.list.d/nodesource.list
 sudo apt update
-sudo apt install -y nodejs python3-dev libcurl4-openssl-dev
+sudo apt install -y nodejs
+sudo npm install -g yarn
+
 sudo modprobe fuse
 
 # pull the repo2docker image
 sudo docker pull gcr.io/nii-ap-ops/repo2docker:2024.10.0
-sudo docker pull gcr.io/nii-ap-ops/rdmfs:20230802
-
-# install yarn
-sudo npm install -g yarn
+sudo docker pull gcr.io/nii-ap-ops/rdmfs:2024.12.0
 
 # install TLJH 1.0
 curl -L https://tljh.jupyter.org/bootstrap.py \
@@ -57,9 +45,58 @@ curl -L https://tljh.jupyter.org/bootstrap.py \
     --admin test:test \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
 
-# fix to use the RCOSDP's one as binderhub package.
-sudo /opt/tljh/hub/bin/python -m pip install --upgrade git+https://github.com/RCOSDP/CS-binderhub.git
-# restart TLJH
+# Workaround: upgrade to the latest version of jupyterhub
+sudo /opt/tljh/hub/bin/pip install --upgrade jupyterhub\<5
+
+# configure the plugin
+cat <<'EOF' | sudo tee /opt/tljh/config/jupyterhub_config.d/repo2docker.py
+from tljh_repo2docker import TLJH_R2D_ADMIN_SCOPE
+import sys
+
+
+c.JupyterHub.allow_named_servers = True
+
+c.JupyterHub.services.extend(
+    [
+        {
+            "name": "tljh_repo2docker",
+            "url": "http://127.0.0.1:6789", # URL must match the `ip` and `port` config
+            "command": [
+                sys.executable,
+                "-m",
+                "tljh_repo2docker",
+                "--ip",
+                "127.0.0.1",
+                "--port",
+                "6789"
+            ],
+            "oauth_no_confirm": True,
+        }
+    ]
+)
+# Set required scopes for the service and users
+c.JupyterHub.load_roles = [
+    {
+        "description": "Role for tljh_repo2docker service",
+        "name": "tljh-repo2docker-service",
+        "scopes": [
+            "read:users",
+            "read:roles:users",
+            "admin:servers",
+            "access:services!service=binder",
+        ],
+        "services": ["tljh_repo2docker"],
+    },
+    {
+        "name": "user",
+        "scopes": [
+            "self",
+            # access to the serve page
+            "access:services!service=tljh_repo2docker",
+        ],
+    },
+]
+EOF
 sudo systemctl restart jupyterhub
 ```
 

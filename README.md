@@ -46,6 +46,8 @@ curl -L https://tljh.jupyter.org/bootstrap.py \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
 
 # Workaround: upgrade to the latest version of jupyterhub
+# Because an older version of jupyterhub is installed together with CS-binderhub,
+# upgrade jupyterhub after the installation of the plugin
 sudo /opt/tljh/hub/bin/pip install --upgrade jupyterhub\<5
 
 # configure the plugin
@@ -71,9 +73,19 @@ c.JupyterHub.services.extend(
                 "6789"
             ],
             "oauth_no_confirm": True,
+            "oauth_client_allowed_scopes": [
+                TLJH_R2D_ADMIN_SCOPE, # Allows this service to check if users have its admin scope.
+            ],
         }
     ]
 )
+
+c.JupyterHub.custom_scopes = {
+    TLJH_R2D_ADMIN_SCOPE: {
+        "description": "Admin access to tljh_repo2docker",
+    },
+}
+
 # Set required scopes for the service and users
 c.JupyterHub.load_roles = [
     {
@@ -95,10 +107,17 @@ c.JupyterHub.load_roles = [
             "access:services!service=tljh_repo2docker",
         ],
     },
+    {
+        "name": 'tljh-repo2docker-service-admin',
+        "groups": ["repo2docker"],
+        "scopes": [TLJH_R2D_ADMIN_SCOPE],
+    },
 ]
 EOF
 sudo systemctl restart jupyterhub
 ```
+
+Applying the above settings allows JupyterHub administrators or users in the `repo2docker` group to access the `tljh_repo2docker` service. See [Configuration](#configuration) for information to customize the settings.
 
 Refer to [The Littlest JupyterHub documentation](http://tljh.jupyter.org/en/latest/topic/customizing-installer.html?highlight=plugins#installing-tljh-plugins)
 for more info on installing TLJH plugins.

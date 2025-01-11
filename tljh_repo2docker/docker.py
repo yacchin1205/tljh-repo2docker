@@ -30,6 +30,7 @@ async def list_images():
         )
     images = [
         {
+            "provider": image["Labels"].get("tljh_repo2docker.opt.provider", None),
             "repo": get_optional_value(image, 'repo') or image["Labels"]["repo2docker.repo"],
             "ref": image["Labels"]["repo2docker.ref"],
             "spawnref": get_spawn_ref(image),
@@ -56,6 +57,7 @@ async def list_containers():
         )
     containers = [
         {
+            "provider": container["Labels"].get("tljh_repo2docker.opt.provider", None),
             "repo": get_optional_value(container, 'repo') or container["Labels"]["repo2docker.repo"],
             "ref": container["Labels"]["repo2docker.ref"],
             "spawnref": get_spawn_ref(container),

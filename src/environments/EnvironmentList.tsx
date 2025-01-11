@@ -32,7 +32,9 @@ const columns: GridColDef[] = [
     maxWidth: 150,
     renderCell: params => {
       return (
-        <a href={`${params.row.repo}/tree/${params.value}`}>{params.value}</a>
+        params.row.provider === 'rdm'
+          ? '-'
+          : <a href={`${params.row.repo}/tree/${params.value}`}>{params.value}</a>
       );
     }
   },

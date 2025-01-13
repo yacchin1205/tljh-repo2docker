@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from jupyterhub.utils import url_path_join
+from httpx import Timeout
 from tornado import web
 
 from .base import BaseHandler
@@ -44,9 +45,14 @@ class ServersAPIHandler(BaseHandler):
         else:
             path = url_path_join("users", user_name, "server")
         try:
-            response = await self.client.post(path, json=post_data)
+            response = await self.client.post(
+                path,
+                json=post_data,
+                timeout=self._spawn_request_timeout,
+            )
             response.raise_for_status()
         except Exception:
+            self.log.exception("Error spawning server")
             raise web.HTTPError(500, "Server error")
 
     @web.authenticated
@@ -69,3 +75,12 @@ class ServersAPIHandler(BaseHandler):
             response.raise_for_status()
         except Exception:
             raise web.HTTPError(500, "Server error")
+
+    @property
+    def log(self):
+        return self.settings["log"]
+
+    @property
+    def _spawn_request_timeout(self):
+        timeout = self.settings.get("spawn_request_timeout", 30)
+        return Timeout(timeout)

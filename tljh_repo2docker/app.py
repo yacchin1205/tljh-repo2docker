@@ -10,7 +10,7 @@ from jupyterhub.app import DATA_FILES_PATH
 from jupyterhub.handlers.static import LogoHandler
 from jupyterhub.utils import url_path_join
 from tornado import ioloop, web
-from traitlets import Dict, Int, List, Unicode, default, validate
+from traitlets import Dict, Int, Float, List, Unicode, default, validate
 from traitlets.config.application import Application
 
 from .binderhub_builder import BinderHubBuildHandler
@@ -156,6 +156,12 @@ class TljhRepo2Docker(Application):
         config=True,
     )
 
+    spawn_request_timeout = Float(
+        30,
+        help="Timeout for spawn requests to JupyterHub in seconds",
+        config=True,
+    )
+
     aliases = {
         "port": "TljhRepo2Docker.port",
         "ip": "TljhRepo2Docker.ip",
@@ -165,6 +171,7 @@ class TljhRepo2Docker(Application):
         "machine_profiles": "TljhRepo2Docker.machine_profiles",
         "binderhub_url": "TljhRepo2Docker.binderhub_url",
         "db_url": "TljhRepo2Docker.db_url",
+        "spawn_request_timeout": "TljhRepo2Docker.spawn_request_timeout",
     }
 
     def init_settings(self) -> tp.Dict:
@@ -196,6 +203,7 @@ class TljhRepo2Docker(Application):
             machine_profiles=self.machine_profiles,
             binderhub_url=self.binderhub_url,
             repo_providers=self.repo_providers,
+            spawn_request_timeout=self.spawn_request_timeout,
         )
         if hasattr(self, "db_context"):
             settings["db_context"] = self.db_context

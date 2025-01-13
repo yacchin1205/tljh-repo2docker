@@ -113,6 +113,10 @@ c.JupyterHub.load_roles = [
         "scopes": [TLJH_R2D_ADMIN_SCOPE],
     },
 ]
+
+c.JupyterHub.tornado_settings = {
+    "slow_spawn_timeout": 30
+}
 EOF
 sudo systemctl restart jupyterhub
 ```

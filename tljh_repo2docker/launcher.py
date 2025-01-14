@@ -71,7 +71,7 @@ class LaunchHandler(BaseHandler):
         await build_image(
             repo, ref, '', memory, cpu, username, password, [],
             default_image_name=image_name,
-            repo2docker_image='gcr.io/nii-ap-ops/repo2docker:2024.10.0',
+            repo2docker_image='yacchin1205/repo2docker:feature_upstream-2024-11-ext',
             optional_envs=provider.get_optional_envs(access_token=repo_token),
             optional_labels=optional_labels,
         )

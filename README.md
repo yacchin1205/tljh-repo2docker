@@ -18,7 +18,7 @@ During the [TLJH installation process](http://tljh.jupyter.org/en/latest/install
 # install Docker
 sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable"
 sudo apt update && sudo apt install -y docker-ce
 
 sudo apt-get update
@@ -42,7 +42,7 @@ sudo docker pull gcr.io/nii-ap-ops/rdmfs:2024.12.0
 curl -L https://tljh.jupyter.org/bootstrap.py \
   | sudo python3 - \
     --version 1.0.0 \
-    --admin test:test \
+    --admin admin:change-your-password \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
 
 # Workaround: upgrade to the latest version of jupyterhub

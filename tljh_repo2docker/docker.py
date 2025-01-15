@@ -30,6 +30,7 @@ async def list_images():
         )
     images = [
         {
+            "provider": image["Labels"].get("tljh_repo2docker.opt.provider", None),
             "repo": get_optional_value(image, 'repo') or image["Labels"]["repo2docker.repo"],
             "ref": image["Labels"]["repo2docker.ref"],
             "spawnref": get_spawn_ref(image),
@@ -56,6 +57,7 @@ async def list_containers():
         )
     containers = [
         {
+            "provider": container["Labels"].get("tljh_repo2docker.opt.provider", None),
             "repo": get_optional_value(container, 'repo') or container["Labels"]["repo2docker.repo"],
             "ref": container["Labels"]["repo2docker.ref"],
             "spawnref": get_spawn_ref(container),
@@ -72,9 +74,18 @@ async def list_containers():
 
 
 async def build_image(
-    repo, ref, name="", memory=None, cpu=None, username=None, password=None,
-    extra_buildargs=None, repo2docker_image=None, optional_envs=None, default_image_name=None,
-    optional_labels=None
+    repo,
+    ref,
+    name="",
+    memory=None,
+    cpu=None,
+    username=None,
+    password=None,
+    extra_buildargs=None,
+    repo2docker_image=None,
+    optional_envs=None,
+    default_image_name=None,
+    optional_labels=None,
 ):
     """
     Build an image given a repo, ref and limits
@@ -130,16 +141,10 @@ async def build_image(
     ]
 
     for label in labels:
-        cmd += [
-            "--label",
-            label
-        ]
+        cmd += ["--label", label]
 
     for barg in extra_buildargs or []:
-        cmd += [
-            "--build-arg",
-            barg
-        ]
+        cmd += ["--build-arg", barg]
 
     cmd.append(repo)
     envs = []

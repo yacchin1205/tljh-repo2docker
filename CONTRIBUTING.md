@@ -26,7 +26,6 @@ source bin/activate
 
 ## Install the development requirements
 
-
 ```bash
 python -m pip install -r dev-requirements.txt
 
@@ -47,10 +46,16 @@ docker pull quay.io/jupyterhub/repo2docker:main
 
 ## Run
 
-Finally, start `jupyterhub` with the config in `debug` mode:
+Finally, start `jupyterhub` with local build backend:
 
 ```bash
-python -m jupyterhub -f jupyterhub_config.py --debug
+python -m jupyterhub -f ui-tests/jupyterhub_config_local.py --debug
+```
+
+or using `binderhub` build backend
+
+```bash
+python -m jupyterhub -f ui-tests/jupyterhub_config_binderhub.py --debug
 ```
 
 Open https://localhost:8000 in a web browser.

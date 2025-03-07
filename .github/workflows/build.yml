@@ -163,7 +163,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tljh-playwright-tests
+          name: tljh-playwright-tests-${{ matrix.build-backend }}
           path: |
             ui-tests/local-test-results
             ui-tests/binderhub-test-results

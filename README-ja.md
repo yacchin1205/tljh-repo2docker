@@ -43,6 +43,11 @@ curl -L https://tljh.jupyter.org/bootstrap.py \
     --admin admin:change-your-password \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
 
+# Workaround: upgrade to the latest version of jupyterhub
+# Because an older version of jupyterhub is installed together with CS-binderhub,
+# upgrade jupyterhub after the installation of the plugin
+sudo /opt/tljh/hub/bin/pip install --upgrade jupyterhub\<5
+
 # configure the plugin
 cat <<'EOF' | sudo tee /opt/tljh/config/jupyterhub_config.d/repo2docker.py
 from tljh_repo2docker import TLJH_R2D_ADMIN_SCOPE

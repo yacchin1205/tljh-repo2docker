@@ -1,11 +1,8 @@
 import json
-import logging
 
 from urllib.parse import urlparse, quote_plus
 
 from aiodocker import Docker, DockerError
-
-logger = logging.getLogger(__name__)
 
 
 def get_optional_value(object, key):
@@ -89,6 +86,7 @@ async def build_image(
     optional_envs=None,
     default_image_name=None,
     optional_labels=None,
+    log=None,
 ):
     """
     Build an image given a repo, ref and limits
@@ -190,14 +188,14 @@ async def build_image(
         try:
             info = await docker_client.images.inspect(image_name)
         except DockerError as err:
-            logger.error("Unable to retrieve cached repo2docker image %s", image_name, exc_info=err)
+            log.error("Unable to retrieve cached repo2docker image %s", image_name, exc_info=err)
             raise
 
         current_labels = (info.get("Config", {}) or {}).get("Labels", {}) or {}
         if all(current_labels.get(key) == value for key, value in expected_labels.items()):
             return
 
-        logger.info("Refreshing labels on cached repo2docker image %s", image_name)
+        log.info("Refreshing labels on cached repo2docker image %s", image_name)
 
         updated_labels = current_labels.copy()
         updated_labels.update(expected_labels)
@@ -210,7 +208,7 @@ async def build_image(
             try:
                 await container.delete(force=True)
             except DockerError as cleanup_err:
-                logger.warning("Failed to remove temporary repo2docker container for %s", image_name, exc_info=cleanup_err)
+                log.warning("Failed to remove temporary repo2docker container for %s", image_name, exc_info=cleanup_err)
 
     async with Docker() as docker:
         # Skip rebuild if the requested image tag already exists
@@ -218,17 +216,17 @@ async def build_image(
             await docker.images.get(image_name)
         except DockerError as e:
             if e.status == 404:
-                logger.info(
+                log.info(
                     "repo2docker image %s not found locally; building new image", image_name
                 )
             else:
-                logger.exception("Failed to inspect repo2docker image %s", image_name)
+                log.exception("Failed to inspect repo2docker image %s", image_name)
                 raise
         else:
             await ensure_image_labels(docker)
-            logger.info("Reusing cached repo2docker image %s", image_name)
+            log.info("Reusing cached repo2docker image %s", image_name)
             return image_name
 
-        logger.info("Starting repo2docker build for %s (ref=%s, image=%s)", repo, ref, image_name)
+        log.info("Starting repo2docker build for %s (ref=%s, image=%s)", repo, ref, image_name)
         await docker.containers.run(config=config)
         return image_name

@@ -79,6 +79,7 @@ class LaunchHandler(BaseHandler):
             repo2docker_image='yacchin1205/repo2docker:fix_provision-script',
             optional_envs=provider.get_optional_envs(access_token=repo_token),
             optional_labels=optional_labels,
+            log=self.log,
         )
 
         self.redirect(f'{self.service_prefix}environments')

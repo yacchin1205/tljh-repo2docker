@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict
 
 
 class BuildStatusType(str, Enum):
+    PREPARING = "preparing"
     BUILT = "built"
     BUILDING = "building"
     FAILED = "failed"

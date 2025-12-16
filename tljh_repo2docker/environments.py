@@ -4,6 +4,7 @@ from tornado import web
 
 from .base import BaseHandler, require_admin_role
 from .docker import list_containers, list_images
+from .launcher import get_preparing_builds
 
 
 class EnvironmentsHandler(BaseHandler):
@@ -23,6 +24,10 @@ class EnvironmentsHandler(BaseHandler):
             containers = await list_containers()
             all_images = images + containers
 
+            # Also get PREPARING builds from memory
+            preparing = get_preparing_builds()
+            all_images = preparing + all_images
+
         result = self.render_template(
             "images.html",
             images=all_images,
@@ -36,3 +41,4 @@ class EnvironmentsHandler(BaseHandler):
             self.write(await result)
         else:
             self.write(result)
+

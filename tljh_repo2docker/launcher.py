@@ -2,15 +2,39 @@ from datetime import datetime
 import json
 import os
 import re
+from uuid import uuid4
 
 from traitlets.config import Config
 from .base import BaseHandler, require_admin_role
 from aiodocker import Docker, DockerError
 from tornado import web
 from tornado.httpclient import AsyncHTTPClient
+from tornado.ioloop import IOLoop
 
 from .docker import build_image
 from .token import TokenStore
+
+# In-memory storage for PREPARING builds (before Docker container starts)
+# Key: uid (str), Value: dict with build info
+_preparing_builds = {}
+
+
+def get_preparing_builds():
+    """Return list of builds in PREPARING state for display in UI"""
+    return [
+        {
+            "provider": None,
+            "repo": info["repo"],
+            "ref": "",
+            "spawnref": "",
+            "image_name": "",
+            "display_name": info["repo"],
+            "mem_limit": "",
+            "cpu_limit": "",
+            "status": "preparing",
+        }
+        for info in _preparing_builds.values()
+    ]
 
 
 class LaunchHandler(BaseHandler):
@@ -26,8 +50,6 @@ class LaunchHandler(BaseHandler):
     @web.authenticated
     @require_admin_role
     async def get(self, provider_prefix):
-        from binderhub.builder import _safe_build_slug, _generate_build_name
-
         current_user = await self.fetch_user()
         spec = self._get_spec_from_request(provider_prefix)
         spec = spec.rstrip("/")
@@ -38,51 +60,96 @@ class LaunchHandler(BaseHandler):
             provider.set_access_token(repo_token)
 
         repo = provider.get_repo_url()
-        ref = await provider.get_resolved_ref()
-
-        image_prefix = ''
-        safe_build_slug = _safe_build_slug(provider.get_build_slug(), limit=255 - len(image_prefix))
-        build_name = _generate_build_name(provider.get_build_slug(), ref, prefix='build-')
-        image_name = self.image_name = '{prefix}{build_slug}:{ref}'.format(
-            prefix=image_prefix,
-            build_slug=safe_build_slug,
-            ref=ref
-        ).replace('_', '-').lower()
-        memory = None
-        cpu = None
-        buildargs = None
-        username = None
-        password = None
-        # repo_token is obtained above to authenticate provider access
-        urlpath = self.get_argument('urlpath', None)
         if not repo:
             raise web.HTTPError(400, "Repository is empty")
+
+        urlpath = self.get_argument('urlpath', None)
         self.token_store.set(current_user, repo, repo_token)
 
-        optional_labels = {
-            'provider': provider_prefix,
-            'repo': repo,
-            'ref': ref,
-            'builder': current_user.name,
-            'urlpath': urlpath,
-        }
+        # Collect extra args
+        extra_args = {}
         for key, values in self.request.query_arguments.items():
             if not key.startswith('useropt.'):
                 continue
             self.log.info(f"extra_args: {key}={values}")
-            optional_labels["user." + key[8:]] = "\t".join([v.decode("utf8") for v in values])
-        optional_labels = await self._modify_labels(optional_labels, repo_token)
+            extra_args[key[8:]] = "\t".join([v.decode("utf8") for v in values])
 
-        await build_image(
-            repo, ref, '', memory, cpu, username, password, [],
-            default_image_name=image_name,
-            repo2docker_image='yacchin1205/repo2docker:fix_provision-script',
-            optional_envs=provider.get_optional_envs(access_token=repo_token),
-            optional_labels=optional_labels,
-            log=self.log,
+        # Register PREPARING state in memory
+        uid = str(uuid4())
+        _preparing_builds[uid] = {
+            "uid": uid,
+            "repo": repo,
+            "status": "preparing",
+        }
+
+        # Redirect immediately
+        self.redirect(f'{self.service_prefix}environments')
+
+        # Continue build in background
+        IOLoop.current().spawn_callback(
+            self._do_build,
+            uid,
+            provider,
+            provider_prefix,
+            repo,
+            repo_token,
+            urlpath,
+            extra_args,
+            current_user,
         )
 
-        self.redirect(f'{self.service_prefix}environments')
+    async def _do_build(
+        self,
+        uid,
+        provider,
+        provider_prefix,
+        repo,
+        repo_token,
+        urlpath,
+        extra_args,
+        current_user,
+    ):
+        from binderhub.builder import _safe_build_slug
+
+        try:
+            # Resolve ref (this is the slow part)
+            ref = await provider.get_resolved_ref()
+
+            image_prefix = ''
+            safe_build_slug = _safe_build_slug(provider.get_build_slug(), limit=255 - len(image_prefix))
+            image_name = '{prefix}{build_slug}:{ref}'.format(
+                prefix=image_prefix,
+                build_slug=safe_build_slug,
+                ref=ref
+            ).replace('_', '-').lower()
+
+            # Remove from PREPARING state - build container will be visible via Docker API
+            _preparing_builds.pop(uid, None)
+
+            optional_labels = {
+                'provider': provider_prefix,
+                'repo': repo,
+                'ref': ref,
+                'builder': current_user.name,
+                'urlpath': urlpath,
+            }
+            for key, value in extra_args.items():
+                optional_labels["user." + key] = value
+            optional_labels = await self._modify_labels(optional_labels, repo_token)
+
+            await build_image(
+                repo, ref, '', None, None, None, None, [],
+                default_image_name=image_name,
+                repo2docker_image='yacchin1205/repo2docker:fix_provision-script',
+                optional_envs=provider.get_optional_envs(access_token=repo_token),
+                optional_labels=optional_labels,
+                log=self.log,
+            )
+
+        except Exception as e:
+            self.log.exception(f"Build failed for {repo}")
+            # Remove from PREPARING state on failure too
+            _preparing_builds.pop(uid, None)
 
     def _get_provider(self, provider_prefix, spec):
         """Construct a provider object"""

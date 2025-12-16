@@ -3,6 +3,7 @@ import { DataGrid, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid';
 import { IEnvironmentData } from './types';
 import { memo, useMemo } from 'react';
 import CheckIcon from '@mui/icons-material/Check';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
 import { Box } from '@mui/system';
 import { RemoveEnvironmentButton } from './RemoveEnvironmentButton';
@@ -63,6 +64,10 @@ const columns: GridColDef[] = [
           name={params.row.display_name}
           image={params.row.uid ?? params.row.image_name}
         />
+      ) : params.value === 'preparing' ? (
+        <IconButton title="Preparing...">
+          <HourglassEmptyIcon color="action" />
+        </IconButton>
       ) : null;
     }
   },

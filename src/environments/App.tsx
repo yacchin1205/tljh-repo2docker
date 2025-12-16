@@ -7,7 +7,7 @@ import { IEnvironmentData } from './types';
 import { EnvironmentList } from './EnvironmentList';
 import { IMachineProfile, NewEnvironmentDialog } from './NewEnvironmentDialog';
 import { AxiosContext } from '../common/AxiosContext';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AxiosClient } from '../common/axiosclient';
 import { useJupyterhub } from '../common/JupyterhubContext';
 
@@ -21,6 +21,17 @@ export interface IAppProps {
 }
 export default function App(props: IAppProps) {
   const jhData = useJupyterhub();
+
+  // Auto-reload while preparing
+  useEffect(() => {
+    const hasPreparing = props.images.some(img => img.status === 'preparing');
+    if (!hasPreparing) return;
+
+    const timer = setInterval(() => {
+      window.location.reload();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [props.images]);
 
   const serviceClient = useMemo(() => {
     const baseUrl = jhData.servicePrefix;

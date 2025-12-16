@@ -71,7 +71,8 @@ class BuildHandler(BaseHandler):
                     raise web.HTTPError(400, "Invalid build argument format")
                 extra_buildargs.append(barg)
         await build_image(
-            repo, ref, name, memory, cpu, username, password, extra_buildargs
+            repo, ref, name, memory, cpu, username, password, extra_buildargs,
+            log=self.log,
         )
 
         self.set_status(200)

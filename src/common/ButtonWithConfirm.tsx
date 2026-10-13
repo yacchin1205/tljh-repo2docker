@@ -1,9 +1,9 @@
-import { Button } from '@mui/material';
+import { Button, IconButton, Tooltip } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { Fragment, memo, useCallback, useState } from 'react';
+import { Fragment, JSX, memo, useCallback, useState } from 'react';
 import { Loading } from './LoadingAnimation';
 
 interface IButtonWithConfirm {
@@ -13,6 +13,7 @@ interface IButtonWithConfirm {
   action: (() => void) | (() => Promise<void>);
   okLabel?: string;
   cancelLabel?: string;
+  icon?: JSX.Element;
 }
 
 function _ButtonWithConfirm(props: IButtonWithConfirm) {
@@ -33,17 +34,37 @@ function _ButtonWithConfirm(props: IButtonWithConfirm) {
 
   const removeEnv = useCallback(async () => {
     setLoading(true);
-    await props.action();
-    handleClose();
+    try {
+      await props.action();
+    } finally {
+      // Always clear the spinner, otherwise a reused dialog instance (e.g.
+      // recycled by the DataGrid) reopens already showing the loading state.
+      setLoading(false);
+      handleClose();
+    }
   }, [props, setLoading]);
 
   return (
     <Fragment>
-      <Button onClick={handleOpen} color="error" size="small">
-        {props.buttonLabel}
-      </Button>
+      {props.icon ? (
+        <Tooltip title={props.buttonLabel}>
+          <IconButton onClick={handleOpen} color="error" size="small">
+            {props.icon}
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Button onClick={handleOpen} color="error" size="small">
+          {props.buttonLabel}
+        </Button>
+      )}
 
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth={'sm'}>
+      <Dialog
+        className="tljh-form-dialog"
+        open={open}
+        onClose={handleClose}
+        fullWidth
+        maxWidth={'sm'}
+      >
         <DialogTitle>{props.dialogTitle}</DialogTitle>
         <DialogContent>
           {!loading && props.dialogBody}

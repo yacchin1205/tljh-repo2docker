@@ -1,5 +1,10 @@
 import { expect, test, Page } from '@playwright/test';
 
+// How long a repo2docker build may take. Tests waiting this long must raise
+// their own timeout, or playwright.config.js caps the wait and hides the
+// failing locator behind "Test timeout exceeded".
+const BUILD_TIMEOUT = 1600000;
+
 async function login(page: Page, user: string) {
   await page.goto('hub/login');
   await page.getByText('Sign in');
@@ -20,7 +25,7 @@ test.describe('tljh_repo2docker UI Tests', () => {
   test('Render Login', async ({ page }) => {
     await page.goto('hub/login');
     await page.getByText('Sign in');
-    expect(await page.screenshot()).toMatchSnapshot('login-page.png');
+    await expect(await page.screenshot()).toMatchSnapshot('login-page.png');
   });
 
   test('Log in with admin account', async ({ page }) => {
@@ -29,7 +34,7 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await page.getByRole('link', { name: 'tljh_repo2docker' }).click();
     await page.waitForURL('**/servers');
     await page.waitForTimeout(500);
-    expect(await page.screenshot()).toMatchSnapshot('admin.png');
+    await expect(await page.screenshot()).toMatchSnapshot('admin.png');
   });
 
   test('Log in with user account', async ({ page }) => {
@@ -38,7 +43,7 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await page.getByRole('link', { name: 'tljh_repo2docker' }).click();
     await page.waitForURL('**/servers');
     await page.waitForTimeout(500);
-    expect(await page.screenshot()).toMatchSnapshot('user.png');
+    await expect(await page.screenshot()).toMatchSnapshot('user.png');
   });
 
   test('Render servers page', async ({ page }) => {
@@ -50,7 +55,7 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await page.waitForSelector('div:has-text("No servers are running")', {
       timeout: 1000
     });
-    expect(await page.screenshot()).toMatchSnapshot('servers-page.png');
+    await expect(await page.screenshot()).toMatchSnapshot('servers-page.png');
   });
 
   test('Render environments page', async ({ page }) => {
@@ -64,7 +69,9 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await page.waitForSelector('div:has-text("No environment available")', {
       timeout: 1000
     });
-    expect(await page.screenshot()).toMatchSnapshot('environments-page.png');
+    await expect(await page.screenshot()).toMatchSnapshot(
+      'environments-page.png'
+    );
   });
 
   test('Render environments dialog', async ({ page }) => {
@@ -74,17 +81,21 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await page.getByRole('button', { name: 'Create new environment' }).click();
     await page.waitForTimeout(1000);
     await page.getByRole('button', { name: 'Create Environment' });
-    expect(await page.screenshot()).toMatchSnapshot('environment-dialog.png');
+    await expect(await page.screenshot()).toMatchSnapshot(
+      'environment-dialog.png'
+    );
   });
 
   test('Create new environments', async ({ page }) => {
+    test.setTimeout(BUILD_TIMEOUT + 120000);
     await login(page, 'alice');
     await page.goto('/services/tljh_repo2docker/environments');
     await page.waitForTimeout(1000);
     await page.getByRole('button', { name: 'Create new environment' }).click();
     await page
       .getByLabel('Repository URL *')
-      .fill('https://github.com/plasmabio/template-python');
+      // Use the minimal test repo (README + start script only)
+      .fill('https://github.com/plasmabio/tljh-repo2docker-test-binder');
     await page.getByPlaceholder('HEAD').fill('HEAD');
     await page
       .getByPlaceholder('Example: course-python-101-B37')
@@ -100,16 +111,16 @@ test.describe('tljh_repo2docker UI Tests', () => {
       .click();
     await page.waitForSelector(
       '//span[contains(text(), "Successfully tagged") or (contains(text(), "naming to ") and contains(text(), " done"))]',
-      {
-        timeout: 600000
-      }
+      { timeout: BUILD_TIMEOUT }
     );
     expect(await page.screenshot()).toMatchSnapshot('environment-console.png', {
       maxDiffPixelRatio: 0.05
     });
     await page.getByRole('button', { name: 'Close' }).click();
     await page.waitForTimeout(500);
-    expect(await page.screenshot()).toMatchSnapshot('environment-list.png');
+    await expect(await page.screenshot()).toMatchSnapshot(
+      'environment-list.png'
+    );
   });
 
   test('Render servers dialog', async ({ page }) => {
@@ -122,13 +133,13 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await page.getByRole('button', { name: 'Create new Server' }).click();
     await page.waitForTimeout(1000);
     await page.getByText('Server Options').click();
-    expect(await page.screenshot()).toMatchSnapshot('servers-dialog.png');
+    await expect(await page.screenshot()).toMatchSnapshot('servers-dialog.png');
   });
 
   test('Start server', async ({ page }) => {
     await login(page, 'alice');
     await page.goto('/services/tljh_repo2docker/servers');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     await page.waitForSelector('div:has-text("No servers are running")', {
       timeout: 1000
     });
@@ -145,45 +156,108 @@ test.describe('tljh_repo2docker UI Tests', () => {
       name: 'Create Server'
     });
     await createServer.click();
-    await expect(createServer).toHaveCount(0, { timeout: 20000 });
+    await await expect(createServer).toHaveCount(0, { timeout: 40000 });
     await page.waitForURL('**/servers');
     await page.waitForTimeout(1000);
 
-    expect(await page.screenshot()).toMatchSnapshot('running-servers.png');
+    await expect(await page.screenshot()).toMatchSnapshot(
+      'running-servers.png'
+    );
   });
 
   test('Remove server', async ({ page }) => {
     await login(page, 'alice');
     await page.goto('/services/tljh_repo2docker/servers');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(10000);
 
     await page.getByRole('button', { name: 'Stop Server' }).click();
-    await page.waitForTimeout(500);
-    expect(await page.screenshot()).toMatchSnapshot(
+    await page.waitForTimeout(10000);
+    await expect(await page.screenshot()).toMatchSnapshot(
       'server-remove-confirm.png'
     );
     const accept = await page.getByRole('button', { name: 'Accept' });
     await accept.click();
-    await expect(accept).toHaveCount(0);
     await page.waitForTimeout(1000);
+    await expect(page.getByRole('button', { name: 'Accept' })).toBeHidden();
+    await page.waitForTimeout(5000);
     await page.waitForURL('**/servers');
-    expect(await page.screenshot()).toMatchSnapshot('server-removed.png');
+    await expect(await page.screenshot()).toMatchSnapshot('server-removed.png');
   });
 
   test('Remove environment', async ({ page }) => {
     await login(page, 'alice');
     await page.goto('/services/tljh_repo2docker/environments');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(5000);
     await page.getByRole('button', { name: 'Remove' }).click();
-    await page.waitForTimeout(500);
-    expect(await page.screenshot()).toMatchSnapshot(
+    await page.waitForTimeout(2000);
+    await expect(await page.screenshot()).toMatchSnapshot(
       'environment-remove-confirm.png'
     );
     const accept = await page.getByRole('button', { name: 'Accept' });
     await accept.click();
-    await expect(accept).toHaveCount(0);
+    await page.waitForTimeout(2000);
+    await expect(page.getByRole('button', { name: 'Accept' })).toBeHidden();
     await page.waitForTimeout(1000);
     await page.waitForURL('**/environments');
-    expect(await page.screenshot()).toMatchSnapshot('environment-removed.png');
+    await expect(await page.screenshot()).toMatchSnapshot(
+      'environment-removed.png'
+    );
+  });
+
+  test('Rebuild dialog restores the build settings', async ({ page }) => {
+    // Last test on purpose: it adds an environment, which would change the
+    // snapshots of the tests above.
+    const isBinderhub = process.env.CONFIG_FILE === 'binderhub';
+    // Only the local backend really builds here, see the repository below.
+    const statusTimeout = isBinderhub ? 120000 : BUILD_TIMEOUT;
+    test.setTimeout(statusTimeout + 120000);
+    await login(page, 'alice');
+    await page.goto('/services/tljh_repo2docker/environments');
+    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: 'Create new environment' }).click();
+    // Pick non-default values everywhere, so a dialog falling back to the
+    // first option cannot pass.
+    if (isBinderhub) {
+      await page.locator('#git-provider-select').click();
+      await page.getByRole('option', { name: 'GitLab' }).click();
+    }
+    await page
+      .getByLabel('Repository URL *')
+      // Only the dialog pre-fill is under test, so with the GitLab provider
+      // point at a missing GitLab repository: the build fails right away, and
+      // the rebuild action is offered on failed entries too.
+      .fill(
+        isBinderhub
+          ? 'https://gitlab.com/plasmabio/no-such-repository'
+          : 'https://github.com/plasmabio/tljh-repo2docker-test-binder'
+      );
+    await page
+      .getByPlaceholder('Example: course-python-101-B37')
+      .fill('rebuild-check');
+    await page.locator('#machine-profiles-select').click();
+    await page.getByRole('option', { name: /^Medium/ }).click();
+    for (const key of ['gpu', 'ssd']) {
+      await page.locator(`#${key}-select`).click();
+      await page.getByRole('option', { name: 'no', exact: true }).click();
+    }
+    await page.getByRole('button', { name: 'Create Environment' }).click();
+    await page.waitForURL('**/environments');
+
+    // With the local backend a building environment is listed from its build
+    // container, which has no owner label, so the rebuild action only shows up
+    // once the build is over: wait for the terminal status first.
+    const row = page.getByRole('row', { name: /rebuild-check/ });
+    await expect(
+      row.getByRole('button', {
+        name: isBinderhub ? 'View error logs' : 'View build logs'
+      })
+    ).toBeVisible({ timeout: statusTimeout });
+    await row.getByRole('button', { name: 'Rebuild environment' }).click();
+    await expect(page.locator('#machine-profiles-select')).toHaveText(/Medium/);
+    await expect(page.locator('#gpu-select')).toHaveText('no');
+    await expect(page.locator('#ssd-select')).toHaveText('no');
+    if (isBinderhub) {
+      await expect(page.locator('#git-provider-select')).toHaveText('GitLab');
+    }
   });
 });

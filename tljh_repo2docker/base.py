@@ -12,6 +12,7 @@ from jupyterhub.services.auth import HubOAuthenticated
 from jupyterhub.utils import url_path_join
 from sqlalchemy.ext.asyncio import AsyncSession
 from tornado import web
+from tornado.log import app_log
 
 from tljh_repo2docker import TLJH_R2D_ADMIN_SCOPE
 from tljh_repo2docker.database.manager import ImagesDatabaseManager
@@ -47,10 +48,24 @@ class BaseHandler(HubOAuthenticated, web.RequestHandler):
 
     _client = None
 
+    # Default timeout (seconds) applied to every request that does not pass
+    # its own ``timeout=`` argument. Bounded so a stuck JupyterHub API cannot
+    # block a handler indefinitely. Long-running calls (build log streaming)
+    # are expected to override this explicitly.
+    DEFAULT_REQUEST_TIMEOUT = 30.0
+
+    @property
+    def log(self):
+        return self.settings.get("log", app_log)
+
     @property
     def client(self):
         """
         Get the asynchronous HTTP client with valid authorization token.
+
+        The client is a process-wide singleton. The JupyterHub API token is
+        captured the first time the property is read; rotating the token
+        therefore requires a service restart.
         """
         if not BaseHandler._client:
             api_url = os.environ.get("JUPYTERHUB_API_URL", "")
@@ -58,6 +73,7 @@ class BaseHandler(HubOAuthenticated, web.RequestHandler):
             BaseHandler._client = AsyncClient(
                 base_url=api_url,
                 headers={"Authorization": f"Bearer {api_token}"},
+                timeout=self.DEFAULT_REQUEST_TIMEOUT,
             )
         return BaseHandler._client
 
@@ -100,7 +116,7 @@ class BaseHandler(HubOAuthenticated, web.RequestHandler):
             service_prefix=self.settings.get("service_prefix", "/"),
             hub_prefix=self.settings.get("hub_prefix", "/"),
             base_url=base_url,
-            logo_url=url_path_join(base_url, "hub", "home"),
+            logo_url=self.settings.get("logo_url", "/"),
             logout_url=self.settings.get(
                 "logout_url", url_path_join(base_url, "logout")
             ),
@@ -108,6 +124,7 @@ class BaseHandler(HubOAuthenticated, web.RequestHandler):
             xsrf_token=self.xsrf_token.decode("ascii"),
             user=user,
             admin_access=user.admin,
+            custom_links=self.settings.get("custom_links"),
         )
         template_ns.update(kwargs)
         template = self.get_template(name)
@@ -229,6 +246,8 @@ class BaseHandler(HubOAuthenticated, web.RequestHandler):
                 - status (str): The build status of the image.
                 - display_name (str): The user defined name of the image.
                 - repo (str): Source repo used to build the image.
+                - creation_date: The creation Date of the docker image.
+                - owner: The creator of the docker image.
                 - ref (str): Commit reference.
                 - cpu_limit (str): CPU limit.
                 - mem_limit (str): Memory limit.

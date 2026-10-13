@@ -17,6 +17,7 @@ from .binderhub_builder import BinderHubBuildHandler
 from .binderhub_log import BinderHubLogsHandler
 from .builder import BuildHandler
 from .database.manager import ImagesDatabaseManager
+from .database.schemas import BuildStatusType, DockerImageUpdateSchema
 from .dbutil import async_session_context_factory, sync_to_async_url, upgrade_if_needed
 from .environments import EnvironmentsHandler
 from .logs import LogsHandler
@@ -99,6 +100,17 @@ class TljhRepo2Docker(Application):
     def _logo_file_default(self):
         return str(HERE / "static/images/jupyterhub-80.png")
 
+    logo_url = Unicode(
+        "",
+        help="Custom URL for the logo.",
+        allow_none=True,
+        config=True,
+    )
+
+    @default("logo_url")
+    def _logo_url_default(self):
+        return url_path_join(self.base_url, "hub", "home")
+
     tornado_settings = Dict(
         {},
         config=True,
@@ -108,6 +120,19 @@ class TljhRepo2Docker(Application):
     @default("log_level")
     def _default_log_level(self):
         return logging.INFO
+
+    node_selector = Dict(
+        config=True,
+        help="""
+        The dictionary Selector labels used to match the Nodes where Pods will be launched.
+
+        Default is None and means it will be launched in any available Node.
+
+        For example to match the Nodes that have a label of `disktype: ssd` use::
+
+           c.KubeSpawner.node_selector = {'disktype': 'ssd'}
+        """,
+    )
 
     machine_profiles = List(
         default_value=[], trait=Dict, config=True, help="Pre-defined machine profiles"
@@ -127,6 +152,17 @@ class TljhRepo2Docker(Application):
     db_url = Unicode(
         "sqlite:///tljh_repo2docker.sqlite",
         help="url for the database.",
+        config=True,
+    )
+
+    cookie_secret_file = Unicode(
+        "tljh_repo2docker_cookie_secret",
+        help=(
+            "Path to a file storing the cookie secret. If the file does not "
+            "exist, a fresh 32-byte secret is generated and written to it. "
+            "Persisting the secret keeps sessions and XSRF tokens valid "
+            "across service restarts."
+        ),
         config=True,
     )
 
@@ -162,6 +198,12 @@ class TljhRepo2Docker(Application):
         config=True,
     )
 
+    custom_links = Dict(
+        {},
+        config=True,
+        help="Custom links to add to the header",
+    )
+
     aliases = {
         "port": "TljhRepo2Docker.port",
         "ip": "TljhRepo2Docker.ip",
@@ -169,10 +211,32 @@ class TljhRepo2Docker(Application):
         "default_memory_limit": "TljhRepo2Docker.default_memory_limit",
         "default_cpu_limit": "TljhRepo2Docker.default_cpu_limit",
         "machine_profiles": "TljhRepo2Docker.machine_profiles",
+        "node_selector": "TljhRepo2Docker.node_selector",
         "binderhub_url": "TljhRepo2Docker.binderhub_url",
         "db_url": "TljhRepo2Docker.db_url",
         "spawn_request_timeout": "TljhRepo2Docker.spawn_request_timeout",
+        "cookie_secret_file": "TljhRepo2Docker.cookie_secret_file",
+        "custom_links": "TljhRepo2Docker.custom_links",
     }
+
+    def _load_cookie_secret(self) -> bytes:
+        """Load the cookie secret from disk or generate and persist a new one."""
+        path = Path(self.cookie_secret_file)
+        if path.exists():
+            secret = path.read_bytes().strip()
+            if len(secret) >= 32:
+                return secret
+            self.log.warning(
+                "Cookie secret at %s is too short, regenerating", path
+            )
+        secret = os.urandom(32)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(secret)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            self.log.warning("Could not chmod 0600 on cookie secret %s", path)
+        return secret
 
     def init_settings(self) -> tp.Dict:
         """Initialize settings for the service application."""
@@ -194,16 +258,19 @@ class TljhRepo2Docker(Application):
             static_path=static_path,
             static_url_prefix=static_url_prefix,
             jinja2_env=env,
-            cookie_secret=os.urandom(32),
+            cookie_secret=self._load_cookie_secret(),
             base_url=self.base_url,
             hub_prefix=url_path_join(self.base_url, "/hub/"),
             service_prefix=self.service_prefix,
             default_mem_limit=self.default_memory_limit,
             default_cpu_limit=self.default_cpu_limit,
             machine_profiles=self.machine_profiles,
+            node_selector=self.node_selector,
             binderhub_url=self.binderhub_url,
             repo_providers=self.repo_providers,
             spawn_request_timeout=self.spawn_request_timeout,
+            logo_url=self.logo_url,
+            custom_links=self.custom_links,
         )
         if hasattr(self, "db_context"):
             settings["db_context"] = self.db_context
@@ -311,6 +378,30 @@ class TljhRepo2Docker(Application):
         application.listen(self.port, self.ip)
         return application
 
+    async def _cleanup_stale_builds(self):
+        """Mark BUILDING entries as FAILED on startup (server was restarted mid-build)."""
+        if not hasattr(self, "db_context") or not hasattr(self, "image_db_manager"):
+            return
+        async with self.db_context() as db:
+            all_entries = await self.image_db_manager.read_all(db)
+        stale = [e for e in all_entries if e.status == BuildStatusType.BUILDING]
+        if not stale:
+            return
+        self.log.warning(
+            "Found %d build(s) stuck in BUILDING state — marking as FAILED", len(stale)
+        )
+        for entry in stale:
+            async with self.db_context() as db:
+                await self.image_db_manager.update(
+                    db,
+                    DockerImageUpdateSchema(
+                        uid=entry.uid,
+                        status=BuildStatusType.FAILED,
+                        log=(entry.log or "")
+                        + "\n[Build interrupted: server restarted]\n",
+                    ),
+                )
+
     def start(self):
         """Start the server."""
         self.init_db()
@@ -323,6 +414,7 @@ class TljhRepo2Docker(Application):
 
         self.app.listen(self.port, self.ip)
         self.ioloop = ioloop.IOLoop.current()
+        self.ioloop.add_callback(self._cleanup_stale_builds)
         try:
             self.log.info(
                 f"tljh-repo2docker service listening on {self.ip}:{self.port}"

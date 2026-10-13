@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 
 class BuildStatusType(str, Enum):
@@ -14,8 +14,16 @@ class ImageMetadataType(BaseModel):
     display_name: str
     repo: str
     ref: str
+    # Older database entries predate ownership, creation dates and node selectors.
+    creation_date: str = ""
+    owner: str = ""
     cpu_limit: str
     mem_limit: str
+    node_selector: dict = Field(default_factory=dict)
+    buildargs: Optional[str] = None
+    # BinderHub repo provider (e.g. "git", "gl"), so a rebuild can reuse it.
+    # None for entries created before it was persisted.
+    provider: Optional[str] = None
 
 
 class DockerImageCreateSchema(BaseModel):
@@ -39,5 +47,4 @@ class DockerImageUpdateSchema(DockerImageCreateSchema):
 
 
 class DockerImageOutSchema(DockerImageCreateSchema):
-
     model_config = ConfigDict(use_enum_values=True, from_attributes=True)

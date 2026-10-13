@@ -50,18 +50,34 @@ def get_service_page(path, app, **kw):
 
 
 async def add_environment(
-    app, *, repo, ref="HEAD", name="", memory="", cpu="", provider=None
+    app,
+    *,
+    repo,
+    ref="HEAD",
+    name="",
+    memory="",
+    cpu="",
+    provider=None,
+    node_selector={},
+    uid=None,
 ):
-    """Use the POST endpoint to add a new environment"""
+    """Use the POST endpoint to add or rebuild an environment.
+
+    Pass ``uid`` to trigger an in-place rebuild of an existing entry instead
+    of creating a new one.
+    """
     data = {
         "repo": repo,
         "ref": ref,
         "name": name,
         "memory": memory,
         "cpu": cpu,
+        "node_selector": node_selector,
     }
     if provider:
         data["provider"] = provider
+    if uid is not None:
+        data["uid"] = uid
     r = await api_request(
         app,
         "environments",
@@ -73,19 +89,40 @@ async def add_environment(
 
 async def wait_for_image(*, image_name):
     """wait until an image is built"""
-    count, retries = 0, 60 * 10
-    image = None
+    count, retries = 0, 60 * 20
     async with Docker() as docker:
         while count < retries:
             await asyncio.sleep(1)
             try:
                 image = await docker.images.inspect(image_name)
             except DockerError:
-                count += 1
-                continue
-            else:
-                break
-    return image
+                image = None
+
+            if image:
+                return image
+
+            count += 1
+    return None
+
+
+async def wait_for_build_status(app, *, uid, status="built", retries=120):
+    """Poll the environments API until the entry ``uid`` reaches ``status``.
+
+    ``wait_for_image`` only guarantees the Docker image is tagged, which happens
+    before the build container exits and before the DB status is flipped to
+    ``built``. Triggering a rebuild in that window returns 409 (build in
+    progress), so tests must wait for the persisted status, not just the image.
+    """
+    for _ in range(retries):
+        r = await api_request(app, "environments", method="get")
+        if r.status_code == 200:
+            for img in r.json().get("images", []):
+                if img.get("uid") == uid:
+                    if img.get("status") == status:
+                        return img
+                    break
+        await asyncio.sleep(1)
+    return None
 
 
 async def remove_environment(app, *, image_name):
@@ -105,10 +142,18 @@ async def remove_environment(app, *, image_name):
 
 async def remove_docker_image(image_name):
     async with Docker() as docker:
+        # A test may finish as soon as the image is tagged, before its builder exits.
+        containers = await docker.containers.list(
+            all=True,
+            filters=json.dumps({"label": [f"repo2docker.build={image_name}"]}),
+        )
+        for container in containers:
+            await container.delete(force=True)
         try:
             await docker.images.delete(image_name, force=True)
-        except DockerError:
-            pass
+        except DockerError as error:
+            if error.status != 404:
+                raise
 
 
 def next_event(it):

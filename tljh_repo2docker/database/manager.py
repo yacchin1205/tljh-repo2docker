@@ -16,7 +16,6 @@ from .schemas import (
 
 
 class ImagesDatabaseManager:
-
     @property
     def _table(self) -> Type[DockerImageSQL]:
         return DockerImageSQL
@@ -120,9 +119,13 @@ class ImagesDatabaseManager:
         statement = sa.select(self._table).where(self._table.name == image)
         try:
             result = await db.execute(statement)
-            return self._schema_out.model_validate(result.scalars().first())
-        except Exception:
+        except SQLAlchemyError:
+            logging.exception("read_by_image_name: query failed for %r", image)
             return None
+        row = result.scalars().first()
+        if row is None:
+            return None
+        return self._schema_out.model_validate(row)
 
     async def update(
         self, db: AsyncSession, obj_in: DockerImageUpdateSchema, optimistic: bool = True
@@ -143,8 +146,12 @@ class ImagesDatabaseManager:
         Raises:
             DatabaseError: If `db.commit()` failed.
         """
-        if not (obj_db := await self.read(db=db, uid=obj_in.uid)):
-            await self.create(db, obj_in)
+        obj_db = await self.read(db=db, uid=obj_in.uid)
+        if obj_db is None:
+            # Row gone (e.g. deleted while a build was still in flight): do
+            # not silently re-create it from a partial update payload — that
+            # would resurrect a stale entry with NULL name/status.
+            return None
 
         update_data = obj_in.model_dump(exclude_none=True)
 

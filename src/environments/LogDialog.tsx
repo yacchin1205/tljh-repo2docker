@@ -1,13 +1,21 @@
 import 'xterm/css/xterm.css';
 
 import CheckIcon from '@mui/icons-material/Check';
+import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
 import { Button, IconButton } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { Fragment, memo, useCallback, useRef, useState } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import urlJoin from 'url-join';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
@@ -16,6 +24,7 @@ import { useJupyterhub } from '../common/JupyterhubContext';
 interface IEnvironmentLogButton {
   name: string;
   image: string;
+  status?: 'building' | 'failed' | 'built';
 }
 
 const terminalFactory = () => {
@@ -27,12 +36,20 @@ const terminalFactory = () => {
 
 function _EnvironmentLogButton(props: IEnvironmentLogButton) {
   const jhData = useJupyterhub();
+  const status = props.status ?? 'building';
   const [open, setOpen] = useState(false);
-  const [built, setBuilt] = useState(false);
+  const [buildResult, setBuildResult] = useState<'built' | 'failed' | null>(
+    null
+  );
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle'
+  );
   const divRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<{ terminal: Terminal; fitAddon: FitAddon }>(
     terminalFactory()
   );
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
   const handleOpen = useCallback(() => {
     setOpen(true);
     if (divRef.current) {
@@ -42,6 +59,12 @@ function _EnvironmentLogButton(props: IEnvironmentLogButton) {
 
       terminal.open(divRef.current);
       fitAddon.fit();
+
+      resizeObserverRef.current = new ResizeObserver(() => {
+        fitAddon.fit();
+      });
+      resizeObserverRef.current.observe(divRef.current);
+
       const { servicePrefix, xsrfToken } = jhData;
 
       let logsUrl = urlJoin(
@@ -52,7 +75,6 @@ function _EnvironmentLogButton(props: IEnvironmentLogButton) {
         'logs'
       );
       if (xsrfToken) {
-        // add xsrf token to url parameter
         const sep = logsUrl.indexOf('?') === -1 ? '?' : '&';
         logsUrl = logsUrl + sep + '_xsrf=' + xsrfToken;
       }
@@ -65,16 +87,79 @@ function _EnvironmentLogButton(props: IEnvironmentLogButton) {
       eventSource.onmessage = event => {
         const data = JSON.parse(event.data);
 
-        terminal.write(data.message);
-        fitAddon.fit();
         if (data.phase === 'built') {
+          terminal.reset();
+          if (data.message) {
+            terminal.write(data.message);
+            fitAddon.fit();
+          }
           eventSource.close();
-          setBuilt(true);
+          setBuildResult('built');
           return;
         }
+        if (data.phase === 'error') {
+          terminal.reset();
+          if (data.message) {
+            terminal.write(data.message);
+            fitAddon.fit();
+          }
+          eventSource.close();
+          setBuildResult('failed');
+          return;
+        }
+        terminal.write(data.message);
+        fitAddon.fit();
       };
     }
   }, [jhData, props.image]);
+
+  const handleCopy = useCallback(async () => {
+    const { terminal } = terminalRef.current;
+    const hadSelection = terminal.hasSelection();
+    if (!hadSelection) {
+      terminal.selectAll();
+    }
+    const text = terminal.getSelection();
+    if (!hadSelection) {
+      terminal.clearSelection();
+    }
+    if (!text) {
+      return;
+    }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for non-secure contexts (e.g. JupyterHub served over HTTP
+        // on a non-localhost host) where navigator.clipboard is unavailable.
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (!ok) {
+          throw new Error('execCommand copy failed');
+        }
+      }
+      setCopyState('copied');
+    } catch (err) {
+      console.error('Failed to copy logs', err);
+      setCopyState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (copyState === 'idle') {
+      return;
+    }
+    const handle = window.setTimeout(() => setCopyState('idle'), 2000);
+    return () => window.clearTimeout(handle);
+  }, [copyState]);
+
   const handleClose = (
     event?: any,
     reason?: 'backdropClick' | 'escapeKeyDown'
@@ -87,46 +172,96 @@ function _EnvironmentLogButton(props: IEnvironmentLogButton) {
     if (divRef.current) {
       divRef.current.innerHTML = '';
     }
+
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
+
     setOpen(false);
   };
 
+  const effectiveStatus = buildResult ?? status;
+  const dialogTitle =
+    effectiveStatus === 'failed'
+      ? `Build failed: ${props.name}`
+      : effectiveStatus === 'built'
+        ? `Build logs: ${props.name}`
+        : `Creating environment ${props.name}`;
+
+  const triggerButton =
+    effectiveStatus === 'failed' ? (
+      <IconButton onClick={handleOpen} title="View error logs">
+        <ErrorIcon color="error" />
+      </IconButton>
+    ) : effectiveStatus === 'built' ? (
+      <IconButton onClick={handleOpen} title="View build logs">
+        <CheckIcon color="success" />
+      </IconButton>
+    ) : (
+      <IconButton onClick={handleOpen}>
+        <SyncIcon
+          sx={{
+            animation: 'spin 2s linear infinite',
+            '@keyframes spin': {
+              '0%': {
+                transform: 'rotate(360deg)'
+              },
+              '100%': {
+                transform: 'rotate(0deg)'
+              }
+            }
+          }}
+          htmlColor="orange"
+        />
+      </IconButton>
+    );
+
   return (
     <Fragment>
-      {!built && (
-        <IconButton onClick={handleOpen}>
-          <SyncIcon
-            sx={{
-              animation: 'spin 2s linear infinite',
-              '@keyframes spin': {
-                '0%': {
-                  transform: 'rotate(360deg)'
-                },
-                '100%': {
-                  transform: 'rotate(0deg)'
-                }
-              }
-            }}
-            htmlColor="orange"
-          />
-        </IconButton>
-      )}
-      {built && (
-        <IconButton>
-          <CheckIcon color="success" />
-        </IconButton>
-      )}
+      {triggerButton}
       <Dialog
         open={open}
         onClose={handleClose}
         fullWidth
-        maxWidth={'lg'}
         keepMounted={true}
+        className="tljh-form-dialog"
+        PaperProps={{
+          sx: {
+            width: theme => theme.breakpoints.values.lg,
+            maxWidth: '90vw',
+            height: '80vh',
+            resize: 'both',
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
       >
-        <DialogTitle>Creating environment {props.name}</DialogTitle>
-        <DialogContent>
-          <div ref={divRef} />
+        <DialogTitle>{dialogTitle}</DialogTitle>
+        <DialogContent
+          sx={{
+            flex: 1,
+            display: 'flex',
+            overflow: 'hidden',
+            padding: 0
+          }}
+        >
+          <div
+            ref={divRef}
+            style={{
+              flex: 1,
+              width: '100%',
+              height: '100%'
+            }}
+          />
         </DialogContent>
         <DialogActions>
+          <Button onClick={handleCopy}>
+            {copyState === 'copied'
+              ? 'Copied!'
+              : copyState === 'error'
+                ? 'Copy failed'
+                : 'Copy logs'}
+          </Button>
           <Button variant="contained" onClick={handleClose}>
             Close
           </Button>

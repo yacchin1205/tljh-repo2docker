@@ -1,11 +1,13 @@
-const path = require('path');
+import path from 'path';
+
+const __dirname = new URL('.', import.meta.url).pathname;
 
 const config = {
   mode: process.env.NODE_ENV ?? 'development',
   module: {
     rules: [
       {
-        test: /.tsx?$/,
+        test: /\.tsx?$/,
         use: 'ts-loader',
         exclude: /node_modules/
       },
@@ -31,6 +33,7 @@ const environmentsPageConfig = {
   },
   ...config
 };
+
 const serversPageConfig = {
   name: 'servers',
   entry: './src/servers/main.tsx',
@@ -40,4 +43,15 @@ const serversPageConfig = {
   },
   ...config
 };
-module.exports = [environmentsPageConfig, serversPageConfig];
+
+const spawnPageConfig = {
+  name: 'spawn',
+  entry: './src/spawn/main.tsx',
+  output: {
+    path: distRoot,
+    filename: 'spawn.js'
+  },
+  ...config
+};
+
+export default [environmentsPageConfig, serversPageConfig, spawnPageConfig];

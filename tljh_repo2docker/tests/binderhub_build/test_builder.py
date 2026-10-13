@@ -1,12 +1,44 @@
 import asyncio
+from uuid import UUID, uuid4
 
 import pytest
 import sqlalchemy as sa
 from aiodocker import Docker, DockerError
 
 from tljh_repo2docker.database.model import DockerImageSQL
+from tljh_repo2docker.database.schemas import BuildStatusType
 
-from ..utils import add_environment, remove_environment, wait_for_image
+from ..utils import (
+    add_environment,
+    api_request,
+    remove_environment,
+    wait_for_image,
+)
+
+
+def _insert_image_row(
+    db_session, *, uid, name, status, display_name=None, **extra_meta
+):
+    db_session.execute(
+        sa.insert(DockerImageSQL).values(
+            uid=uid,
+            name=name,
+            status=status.value if hasattr(status, "value") else status,
+            log="",
+            image_meta={
+                "display_name": display_name or name.split(":")[0],
+                "repo": "https://example.com/repo",
+                "ref": "HEAD",
+                "creation_date": "01/01/2025",
+                "owner": "admin",
+                "cpu_limit": "",
+                "mem_limit": "",
+                "node_selector": {},
+                **extra_meta,
+            },
+        )
+    )
+    db_session.commit()
 
 
 @pytest.mark.asyncio
@@ -14,8 +46,14 @@ async def test_add_environment(
     app, minimal_repo, image_name, generated_image_name, db_session
 ):
     name, ref = image_name.split(":")
+    node_selector = {"key": "value"}
     r = await add_environment(
-        app, repo=minimal_repo, name=name, ref=ref, provider="git"
+        app,
+        repo=minimal_repo,
+        name=name,
+        ref=ref,
+        provider="git",
+        node_selector=node_selector,
     )
     assert r.status_code == 200
     uid = r.json().get("uid", None)
@@ -23,10 +61,19 @@ async def test_add_environment(
 
     await wait_for_image(image_name=generated_image_name)
     await asyncio.sleep(3)
-    images_db = db_session.execute(sa.select(DockerImageSQL)).scalars().first()
+    images_db = (
+        db_session.execute(
+            sa.select(DockerImageSQL).where(DockerImageSQL.uid == UUID(uid))
+        )
+        .scalars()
+        .first()
+    )
+    assert images_db is not None
     assert images_db.name == generated_image_name
     assert images_db.image_meta["display_name"] == name
     assert images_db.image_meta["ref"] == ref
+    assert images_db.image_meta["node_selector"] == node_selector
+    assert images_db.image_meta["provider"] == "git"
 
 
 @pytest.mark.asyncio
@@ -34,8 +81,14 @@ async def test_delete_environment(
     app, minimal_repo, image_name, generated_image_name, db_session
 ):
     name, ref = image_name.split(":")
+    node_selector = {"key": "value"}
     r = await add_environment(
-        app, repo=minimal_repo, name=name, ref=ref, provider="git"
+        app,
+        repo=minimal_repo,
+        name=name,
+        ref=ref,
+        provider="git",
+        node_selector=node_selector,
     )
     assert r.status_code == 200
     uid = r.json().get("uid", None)
@@ -69,13 +122,19 @@ async def test_no_repo(app, image_name):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "memory, cpu",
+    "memory, cpu, node_selector, expected_error",
     [
-        ("abcded", ""),
-        ("", "abcde"),
+        ("abcded", "", {"key": "value"}, "must be a number"),
+        ("", "abcde", {"key": "value"}, "must be a number"),
+        ("-1", "", {"key": "value"}, "must be a positive number"),
+        ("", "-2", {"key": "value"}, "must be a positive number"),
+        ("0", "", {"key": "value"}, "must be a positive number"),
+        ("", "0", {"key": "value"}, "must be a positive number"),
     ],
 )
-async def test_wrong_limits(app, minimal_repo, image_name, memory, cpu):
+async def test_wrong_limits(
+    app, minimal_repo, image_name, memory, cpu, node_selector, expected_error
+):
     name, ref = image_name.split(":")
     r = await add_environment(
         app,
@@ -84,10 +143,11 @@ async def test_wrong_limits(app, minimal_repo, image_name, memory, cpu):
         ref=ref,
         memory=memory,
         cpu=cpu,
+        node_selector=node_selector,
         provider="git",
     )
     assert r.status_code == 400
-    assert "must be a number" in r.text
+    assert expected_error in r.text
 
 
 @pytest.mark.asyncio
@@ -99,6 +159,156 @@ async def test_wrong_name(app, minimal_repo):
 
 
 @pytest.mark.asyncio
-async def test_missing_provider(app, minimal_repo):
+async def test_missing_provider_defaults_to_git(app, minimal_repo):
+    # A missing provider defaults to "git" server-side, so the build succeeds.
     r = await add_environment(app, repo=minimal_repo, name="foobar")
-    assert r.status_code == 500
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_rebuild_unknown_uid_returns_404(app, minimal_repo):
+    r = await add_environment(
+        app,
+        repo=minimal_repo,
+        name="ghost",
+        ref="HEAD",
+        provider="git",
+        uid=str(uuid4()),
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_rebuild_with_mismatched_name_returns_400(
+    app, minimal_repo, db_session
+):
+    uid = uuid4()
+    _insert_image_row(
+        db_session,
+        uid=uid,
+        name="original:HEAD",
+        display_name="original",
+        status=BuildStatusType.BUILT,
+    )
+    try:
+        r = await add_environment(
+            app,
+            repo=minimal_repo,
+            name="otherword",
+            ref="HEAD",
+            provider="git",
+            uid=str(uid),
+        )
+        assert r.status_code == 400
+    finally:
+        db_session.execute(
+            sa.delete(DockerImageSQL).where(DockerImageSQL.uid == uid)
+        )
+        db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_rebuild_while_building_returns_409(app, minimal_repo, db_session):
+    uid = uuid4()
+    _insert_image_row(
+        db_session,
+        uid=uid,
+        name="busy:HEAD",
+        display_name="busy",
+        status=BuildStatusType.BUILDING,
+    )
+    try:
+        r = await add_environment(
+            app,
+            repo=minimal_repo,
+            name="busy",
+            ref="HEAD",
+            provider="git",
+            uid=str(uid),
+        )
+        assert r.status_code == 409
+    finally:
+        db_session.execute(
+            sa.delete(DockerImageSQL).where(DockerImageSQL.uid == uid)
+        )
+        db_session.commit()
+
+
+def _read_image_meta(db_session, uid):
+    db_session.expire_all()
+    entry = (
+        db_session.execute(sa.select(DockerImageSQL).where(DockerImageSQL.uid == uid))
+        .scalars()
+        .first()
+    )
+    return entry.image_meta
+
+
+@pytest.mark.asyncio
+async def test_rebuild_persists_provider_and_node_selector(
+    app, minimal_repo, db_session
+):
+    # An entry created before the provider was persisted has no "provider"
+    # key; a rebuild must store the one it was submitted with, along with the
+    # node selector, so the next rebuild dialog can pre-fill both.
+    uid = uuid4()
+    _insert_image_row(
+        db_session,
+        uid=uid,
+        name="legacy:HEAD",
+        display_name="legacy",
+        status=BuildStatusType.BUILT,
+    )
+    node_selector = {"key": "value"}
+    try:
+        r = await add_environment(
+            app,
+            repo=minimal_repo,
+            name="legacy",
+            ref="HEAD",
+            provider="git",
+            node_selector=node_selector,
+            uid=str(uid),
+        )
+        assert r.status_code == 200
+        meta = _read_image_meta(db_session, uid)
+        assert meta["provider"] == "git"
+        assert meta["node_selector"] == node_selector
+    finally:
+        db_session.execute(sa.delete(DockerImageSQL).where(DockerImageSQL.uid == uid))
+        db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_get_environments_returns_provider(app, db_session):
+    # The rebuild dialog reads provider and node_selector from this listing.
+    # Entries without a stored provider must still load (provider = None).
+    with_provider, without_provider = uuid4(), uuid4()
+    _insert_image_row(
+        db_session,
+        uid=with_provider,
+        name="withprovider:HEAD",
+        status=BuildStatusType.FAILED,
+        provider="gl",
+        node_selector={"key": "value"},
+    )
+    _insert_image_row(
+        db_session,
+        uid=without_provider,
+        name="withoutprovider:HEAD",
+        status=BuildStatusType.FAILED,
+    )
+    try:
+        r = await api_request(app, "environments", method="get")
+        assert r.status_code == 200
+        images = {img["uid"]: img for img in r.json()["images"]}
+        assert images[str(with_provider)]["provider"] == "gl"
+        assert images[str(with_provider)]["node_selector"] == {"key": "value"}
+        assert images[str(without_provider)]["provider"] is None
+    finally:
+        db_session.execute(
+            sa.delete(DockerImageSQL).where(
+                DockerImageSQL.uid.in_([with_provider, without_provider])
+            )
+        )
+        db_session.commit()

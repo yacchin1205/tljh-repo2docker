@@ -23,7 +23,7 @@ sudo apt-get update
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 sudo chmod a+r /etc/apt/keyrings/nodesource.gpg
 
-NODE_MAJOR=21
+NODE_MAJOR=22
 echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | \
  sudo tee /etc/apt/sources.list.d/nodesource.list
 sudo apt update
@@ -36,17 +36,12 @@ sudo modprobe fuse
 sudo docker pull gcr.io/nii-ap-ops/repo2docker:2026.07.2
 sudo docker pull gcr.io/nii-ap-ops/rdmfs:2026.02.1
 
-# install TLJH 1.0
+# install TLJH 2.0
 curl -L https://tljh.jupyter.org/bootstrap.py \
   | sudo python3 - \
-    --version 1.0.0 \
+    --version 2.0.0 \
     --admin admin:change-your-password \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
-
-# Workaround: upgrade to the latest version of jupyterhub
-# Because an older version of jupyterhub is installed together with CS-binderhub,
-# upgrade jupyterhub after the installation of the plugin
-sudo /opt/tljh/hub/bin/pip install --upgrade jupyterhub\<5
 
 # configure the plugin
 cat <<'EOF' | sudo tee /opt/tljh/config/jupyterhub_config.d/repo2docker.py

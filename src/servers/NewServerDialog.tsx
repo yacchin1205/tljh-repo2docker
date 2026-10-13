@@ -66,26 +66,28 @@ function _NewServerDialog(props: INewServerDialogProps) {
   );
 
   const createServer = useCallback(async () => {
-    const imageData = props.images[rowSelectionModel[0] as number];
-    const imageName = imageData.uid ?? imageData.image_name;
+    // The grid row id is the environment id, see environmentId().
+    const imageName = rowSelectionModel[0] as string;
     const data: { [key: string]: string } = {
       imageName,
       userName: jhData.user,
       serverName
     };
+    setLoading(true);
     try {
-      setLoading(true);
       await axios.serviceClient.request({
         method: 'post',
         path: SERVER_PREFIX,
         data
       });
-      window.location.reload();
     } catch (e: any) {
-      setLoading(false);
       alert(e);
+    } finally {
+      setLoading(false);
     }
-  }, [serverName, rowSelectionModel, props.images, axios, jhData]);
+    window.location.reload();
+    setOpen(false);
+  }, [serverName, rowSelectionModel, axios, jhData]);
   const disabled = useMemo(() => {
     if (rowSelectionModel.length === 0) {
       return true;
@@ -105,7 +107,13 @@ function _NewServerDialog(props: INewServerDialogProps) {
           Create new Server
         </Button>
       </Box>
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth={'md'}>
+      <Dialog
+        className="tljh-form-dialog"
+        open={open}
+        onClose={handleClose}
+        fullWidth
+        maxWidth={'lg'}
+      >
         <DialogTitle>Server Options</DialogTitle>
 
         <DialogContent>
@@ -129,6 +137,7 @@ function _NewServerDialog(props: INewServerDialogProps) {
           <EnvironmentList
             images={props.images}
             hideRemoveButton={true}
+            hideRebuildButton={true}
             pageSize={10}
             selectable
             rowSelectionModel={rowSelectionModel}

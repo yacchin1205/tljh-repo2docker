@@ -310,7 +310,7 @@ function _EnvironmentFormDialog(props: IEnvironmentFormDialogProps) {
         <TextField
           id={`${key}-select`}
           value={selectedNodeSelectors[key]}
-          label={key + option.description && `(${option.description})`}
+          label={key + (option.description ? ` (${option.description})` : '')}
           size="small"
           select
           onChange={e => onNodeSelectorChange(key, e.target.value)}

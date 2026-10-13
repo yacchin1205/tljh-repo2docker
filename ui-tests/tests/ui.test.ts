@@ -117,10 +117,24 @@ test.describe('tljh_repo2docker UI Tests', () => {
       maxDiffPixelRatio: 0.05
     });
     await page.getByRole('button', { name: 'Close' }).click();
-    await page.waitForTimeout(500);
-    await expect(await page.screenshot()).toMatchSnapshot(
-      'environment-list.png'
+    const environment = page.getByRole('row', {
+      name: 'python-env https://github.com'
+    });
+    await expect(
+      environment.getByRole('button', { name: 'View build logs' })
+    ).toBeVisible();
+    await expect(environment.locator('[data-field="owner"]')).toHaveText(
+      'alice'
     );
+    await expect(
+      environment.getByRole('button', { name: 'Rebuild environment' })
+    ).toBeVisible();
+    const creationDate = environment.locator('[data-field="creation_date"]');
+    await expect(creationDate).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/);
+    // The build date changes between runs and is checked separately above.
+    await expect(
+      await page.screenshot({ mask: [creationDate] })
+    ).toMatchSnapshot('environment-list.png');
   });
 
   test('Render servers dialog', async ({ page }) => {

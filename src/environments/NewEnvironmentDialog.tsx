@@ -1,24 +1,32 @@
 import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Alert,
   Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControl,
   InputLabel,
   MenuItem,
   OutlinedTextFieldProps,
   Select,
+  TextField,
   Typography
 } from '@mui/material';
+import axiosLib from 'axios';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Fragment,
   memo,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react';
 
@@ -31,25 +39,45 @@ export interface IMachineProfile {
   cpu: string;
   memory: string;
 }
-export interface INewEnvironmentDialogProps {
-  default_cpu_limit: string;
-  default_mem_limit: string;
-  machine_profiles: IMachineProfile[];
-  use_binderhub: boolean;
-  repo_providers?: { label: string; value: string }[];
+interface INodeSelectorOption {
+  description: string;
+  values: string[];
 }
 
-interface IFormValues {
+export interface INodeSelector {
+  [key: string]: INodeSelectorOption;
+}
+
+export interface IFormValues {
   provider?: string;
   repo?: string;
   ref?: string;
   name?: string;
-  memory?: number;
-  cpu?: number;
+  memory?: number | string;
+  cpu?: number | string;
   buildargs?: string;
   username?: string;
   password?: string;
+  node_selector?: { [key: string]: string | undefined };
 }
+
+export interface IEnvironmentDialogConfigProps {
+  default_cpu_limit: string;
+  default_mem_limit: string;
+  machine_profiles: IMachineProfile[];
+  node_selector: INodeSelector;
+  use_binderhub: boolean;
+  repo_providers?: { label: string; value: string }[];
+}
+
+export interface IEnvironmentFormDialogProps extends IEnvironmentDialogConfigProps {
+  open: boolean;
+  onClose: () => void;
+  onRefresh?: () => void;
+  initialValues?: Partial<IFormValues>;
+  rebuildUid?: string;
+}
+
 const commonInputProps: OutlinedTextFieldProps = {
   autoFocus: true,
   required: true,
@@ -58,12 +86,20 @@ const commonInputProps: OutlinedTextFieldProps = {
   variant: 'outlined'
 };
 
-function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
+function _EnvironmentFormDialog(props: IEnvironmentFormDialogProps) {
   const axios = useAxios();
-  const [open, setOpen] = useState(false);
-  const handleOpen = () => {
-    setOpen(true);
-  };
+  const isRebuild = Boolean(props.rebuildUid);
+  const [formValues, setFormValues] = useState<IFormValues>(
+    () => props.initialValues ?? {}
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Snapshot at mount: the environment list is polled every 5 s, which hands
+  // the dialog a new initialValues object; re-applying it would reset the
+  // dropdowns while the user is editing them.
+  const initialValuesRef = useRef<Partial<IFormValues>>(
+    props.initialValues ?? {}
+  );
+
   const handleClose = (
     event?: any,
     reason?: 'backdropClick' | 'escapeKeyDown'
@@ -71,24 +107,53 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
     if (reason && reason === 'backdropClick') {
       return;
     }
-    setOpen(false);
+    setErrorMessage(null);
+    props.onClose();
   };
 
-  const [formValues, setFormValues] = useState<IFormValues>({});
   const updateFormValue = useCallback(
-    (key: keyof IFormValues, value: string | number) => {
-      setFormValues(old => {
-        return { ...old, [key]: value };
-      });
+    (
+      key: keyof IFormValues,
+      value: string | number | { [key: string]: string | undefined }
+    ) => {
+      setFormValues(old => ({
+        ...old,
+        [key]: value
+      }));
     },
     [setFormValues]
   );
+  // Reject names that are not valid Docker image references, otherwise the
+  // build fails with "is not a valid docker image name". The name is checked
+  // as typed (we don't silently rewrite the user's input): it must start and
+  // end with a letter or digit and only use . _ - as separators in between.
+  const nameError = useMemo(() => {
+    const raw = (formValues.name ?? '').trim();
+    if (!raw) {
+      // Optional: when left empty the name is derived from the repo URL.
+      return null;
+    }
+    if (!/^[a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*$/.test(raw)) {
+      return 'Invalid name: must start and end with a letter or digit and may only contain . _ - in between.';
+    }
+    return null;
+  }, [formValues.name]);
+
   const validated = useMemo(() => {
-    return Boolean(formValues.repo);
-  }, [formValues.repo]);
+    return Boolean(formValues.repo) && !nameError;
+  }, [formValues.repo, nameError]);
 
   const [selectedProfile, setSelectedProfile] = useState<number>(0);
   const [selectedProvider, setSelectedProvider] = useState<number>(0);
+  const [selectedNodeSelectors, setSelectedNodeSelectors] = useState<{
+    [key: string]: string;
+  }>(() => {
+    const initialSelected: { [key: string]: string } = {};
+    Object.entries(props.node_selector).forEach(([key, option]) => {
+      initialSelected[key] = option.values[0] || '';
+    });
+    return initialSelected;
+  });
 
   const onMachineProfileChange = useCallback(
     (value?: string | number) => {
@@ -118,19 +183,68 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
     },
     [props.repo_providers, updateFormValue]
   );
+
+  const onNodeSelectorChange = useCallback(
+    (key: string, value: string) => {
+      if (value !== undefined) {
+        setSelectedNodeSelectors(prevState => {
+          const newState = { ...prevState, [key]: value };
+          updateFormValue('node_selector', newState);
+          return newState;
+        });
+      }
+    },
+    [updateFormValue]
+  );
+
   useEffect(() => {
-    if (props.machine_profiles.length > 0) {
-      onMachineProfileChange(0);
-    }
+    // On rebuild, select what the environment was built with. Fall back to
+    // the first option when a value was never stored (provider on older
+    // entries) or is no longer offered, so the dropdowns always show exactly
+    // what will be submitted.
+    const initial = isRebuild ? initialValuesRef.current : {};
     if (props.repo_providers && props.repo_providers.length > 0) {
-      onRepoProviderChange(0);
+      const index = props.repo_providers.findIndex(
+        it => it.value === initial.provider
+      );
+      onRepoProviderChange(Math.max(index, 0));
+    }
+    if (props.machine_profiles.length > 0) {
+      const index = isRebuild
+        ? props.machine_profiles.findIndex(
+            it =>
+              String(it.cpu) === String(initial.cpu) &&
+              String(it.memory) === String(initial.memory)
+          )
+        : -1;
+      if (index >= 0) {
+        // cpu/memory are already pre-filled: only sync the dropdown.
+        setSelectedProfile(index);
+      } else {
+        // No profile offers these resources any more: apply the first one, as
+        // the memory and CPU fields are hidden when profiles are configured.
+        onMachineProfileChange(0);
+      }
+    }
+    if (props.node_selector) {
+      Object.entries(props.node_selector).forEach(([key, option]) => {
+        const saved = initial.node_selector?.[key];
+        onNodeSelectorChange(
+          key,
+          saved && option.values.includes(saved) ? saved : option.values[0]
+        );
+      });
     }
   }, [
+    isRebuild,
     props.machine_profiles,
     props.repo_providers,
+    props.node_selector,
     onMachineProfileChange,
-    onRepoProviderChange
+    onRepoProviderChange,
+    onNodeSelectorChange
   ]);
+
   const MemoryCpuSelector = useMemo(() => {
     return (
       <Fragment>
@@ -143,6 +257,8 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
           type="number"
           helperText="If empty, defaults to 2 GB"
           required={false}
+          inputProps={{ min: 0, step: 'any' }}
+          value={formValues.memory ?? ''}
           onChange={e => updateFormValue('memory', e.target.value)}
         />
         <SmallTextField
@@ -154,11 +270,13 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
           type="number"
           helperText="If empty, defaults to 2 cores"
           required={false}
+          inputProps={{ min: 0, step: 'any' }}
+          value={formValues.cpu ?? ''}
           onChange={e => updateFormValue('cpu', e.target.value)}
         />
       </Fragment>
     );
-  }, [updateFormValue]);
+  }, [formValues.memory, formValues.cpu, updateFormValue]);
 
   const MachineProfileSelector = useMemo(() => {
     return (
@@ -186,121 +304,170 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
     );
   }, [props.machine_profiles, selectedProfile, onMachineProfileChange]);
 
+  const NodeSelectorDropdown = useMemo(() => {
+    return Object.entries(props.node_selector).map(([key, option]) => (
+      <FormControl key={key} fullWidth sx={{ marginTop: '8px' }}>
+        <TextField
+          id={`${key}-select`}
+          value={selectedNodeSelectors[key]}
+          label={key + (option.description ? ` (${option.description})` : '')}
+          size="small"
+          select
+          onChange={e => onNodeSelectorChange(key, e.target.value)}
+        >
+          {option.values.map((val: string) => (
+            <MenuItem key={val} value={val}>
+              {val}
+            </MenuItem>
+          ))}
+        </TextField>
+      </FormControl>
+    ));
+  }, [props.node_selector, selectedNodeSelectors, onNodeSelectorChange]);
+
   return (
-    <Fragment>
-      <Box sx={{ display: 'flex', flexDirection: 'row-reverse' }}>
-        <Button onClick={handleOpen} variant="contained">
-          Create new environment
-        </Button>
-      </Box>
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        fullWidth
-        maxWidth={'sm'}
-        PaperProps={{
-          component: 'form',
-          onSubmit: async (event: React.FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            const data: any = { ...formValues };
-            data.repo = data.repo.trim();
-            data.name =
-              data.name ??
-              (data.repo as string)
-                .replace('http://', '')
-                .replace('https://', '')
-                .replace(/\//g, '-')
-                .replace(/\./g, '-');
-            data.ref = data.ref && data.ref.length > 0 ? data.ref : 'HEAD';
-            data.cpu = data.cpu ?? '2';
-            data.memory = data.memory ?? '2';
-            data.username = data.username ?? '';
-            data.password = data.password ?? '';
+    <Dialog
+      open={props.open}
+      onClose={handleClose}
+      fullWidth
+      maxWidth={'md'}
+      className="tljh-form-dialog"
+      PaperProps={{
+        component: 'form',
+        onSubmit: async (event: React.FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          const data: any = { ...formValues };
+          data.repo = data.repo.trim();
+          data.name =
+            data.name ??
+            (data.repo as string)
+              .replace('http://', '')
+              .replace('https://', '')
+              .replace(/\//g, '-')
+              .replace(/\./g, '-');
+          data.ref = data.ref && data.ref.length > 0 ? data.ref : 'HEAD';
+          data.cpu = data.cpu ?? '2';
+          data.memory = data.memory ?? '2';
+          data.username = data.username ?? '';
+          data.password = data.password ?? '';
+          if (props.rebuildUid) {
+            data.uid = props.rebuildUid;
+          }
+          setErrorMessage(null);
+          try {
             const response = await axios.serviceClient.request({
               method: 'post',
               path: ENV_PREFIX,
               data
             });
-            if (response?.status === 'ok') {
-              window.location.reload();
-            } else {
-              handleClose();
+            if (response?.status === 200) {
+              props.onRefresh?.();
             }
+            props.onClose();
+          } catch (err) {
+            // The backend's write_error returns a JSON body
+            // {status, message}; that's the real reason. statusText is
+            // unreliable (HTTP/2 strips it to "Bad Request").
+            let message = 'Request failed';
+            if (axiosLib.isAxiosError(err) && err.response) {
+              message =
+                err.response.data?.message ||
+                err.response.statusText ||
+                err.message ||
+                message;
+            } else if (err instanceof Error) {
+              message = err.message;
+            }
+            setErrorMessage(message);
           }
-        }}
-      >
-        <DialogTitle>Create a new environment</DialogTitle>
-        <DialogContent>
-          {props.use_binderhub && props.repo_providers && (
-            <FormControl fullWidth sx={{ marginTop: '8px' }}>
-              <InputLabel id="git-provider-select-label">
-                Repository provider
-              </InputLabel>
-              <Select
-                labelId="git-provider-select-label"
-                id="git-provider-select"
-                value={selectedProvider}
-                label="Repository provider"
-                size="small"
-                onChange={e => onRepoProviderChange(e.target.value)}
-              >
-                {props.repo_providers.map((it, idx) => {
-                  return (
-                    <MenuItem key={idx} value={idx}>
-                      {it.label}
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-          )}
-          <SmallTextField
-            {...commonInputProps}
-            id="repo"
-            size="small"
-            name="repo"
-            label="Repository URL"
-            type="text"
-            onChange={e => updateFormValue('repo', e.target.value)}
-            value={formValues.repo ?? ''}
-          />
-          <SmallTextField
-            {...commonInputProps}
-            id="ref"
-            name="ref"
-            size="small"
-            label="Reference (git commit)"
-            type="text"
-            placeholder="HEAD"
-            required={false}
-            onChange={e => updateFormValue('ref', e.target.value)}
-            value={formValues.ref ?? ''}
-          />
-          <SmallTextField
-            {...commonInputProps}
-            id="name"
-            name="name"
-            size="small"
-            label="Environment name"
-            type="text"
-            required={false}
-            placeholder="Example: course-python-101-B37"
-            onChange={e => updateFormValue('name', e.target.value)}
-          />
-          {props.machine_profiles.length > 0
-            ? MachineProfileSelector
-            : MemoryCpuSelector}
-          {!props.use_binderhub && (
-            <Fragment>
-              <Divider
-                variant="fullWidth"
-                textAlign="left"
-                sx={{ marginTop: '6px' }}
-              >
-                <Typography sx={{ fontWeight: 500, fontSize: '1.4rem' }}>
-                  Advanced
-                </Typography>
-              </Divider>
+        }
+      }}
+    >
+      <DialogTitle>
+        {isRebuild ? 'Rebuild environment' : 'Create a new environment'}
+      </DialogTitle>
+      <DialogContent>
+        {errorMessage && (
+          <Alert
+            severity="error"
+            sx={{ mb: 1 }}
+            onClose={() => setErrorMessage(null)}
+          >
+            {errorMessage}
+          </Alert>
+        )}
+        {props.use_binderhub && props.repo_providers && (
+          <FormControl fullWidth sx={{ marginTop: '8px' }}>
+            <InputLabel id="git-provider-select-label">
+              Repository provider
+            </InputLabel>
+            <Select
+              labelId="git-provider-select-label"
+              id="git-provider-select"
+              value={selectedProvider}
+              label="Repository provider"
+              size="small"
+              onChange={e => onRepoProviderChange(e.target.value)}
+            >
+              {props.repo_providers.map((it, idx) => {
+                return (
+                  <MenuItem key={idx} value={idx}>
+                    {it.label}
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+        )}
+        <SmallTextField
+          {...commonInputProps}
+          id="repo"
+          size="small"
+          name="repo"
+          label="Repository URL"
+          type="text"
+          onChange={e => updateFormValue('repo', e.target.value)}
+          value={formValues.repo ?? ''}
+        />
+        <SmallTextField
+          {...commonInputProps}
+          id="ref"
+          name="ref"
+          size="small"
+          label="Reference (git commit)"
+          type="text"
+          placeholder="HEAD"
+          required={false}
+          onChange={e => updateFormValue('ref', e.target.value)}
+          value={formValues.ref ?? ''}
+        />
+        <SmallTextField
+          {...commonInputProps}
+          id="name"
+          name="name"
+          size="small"
+          label="Environment name"
+          type="text"
+          required={false}
+          placeholder="Example: course-python-101-B37"
+          disabled={isRebuild}
+          error={Boolean(nameError)}
+          helperText={nameError ?? undefined}
+          value={formValues.name ?? ''}
+          onChange={e => updateFormValue('name', e.target.value)}
+        />
+        {props.machine_profiles.length > 0
+          ? MachineProfileSelector
+          : MemoryCpuSelector}
+        {props.node_selector && NodeSelectorDropdown}
+        {!props.use_binderhub && (
+          <Accordion sx={{ mt: 1 }} elevation={0}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography sx={{ fontWeight: 500, fontSize: '1.4rem' }}>
+                Advanced
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
               <SmallTextField
                 {...commonInputProps}
                 id="build_args"
@@ -312,21 +479,21 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
                 rows={4}
                 required={false}
                 placeholder="Build arguments in the form of arg1=val1..."
+                value={formValues.buildargs ?? ''}
                 onChange={e => updateFormValue('buildargs', e.target.value)}
               />
-            </Fragment>
-          )}
-          {!props.use_binderhub && (
-            <Fragment>
-              <Divider
-                variant="fullWidth"
-                textAlign="left"
-                sx={{ marginTop: '6px' }}
-              >
-                <Typography sx={{ fontWeight: 500, fontSize: '1.4rem' }}>
-                  Credentials
-                </Typography>
-              </Divider>
+            </AccordionDetails>
+          </Accordion>
+        )}
+        {!props.use_binderhub && (
+          <Accordion sx={{ mt: 1 }} elevation={0}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography sx={{ fontWeight: 500, fontSize: '1.4rem' }}>
+                Credentials
+              </Typography>
+            </AccordionSummary>
+
+            <AccordionDetails>
               <SmallTextField
                 {...commonInputProps}
                 id="git_user"
@@ -337,6 +504,7 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
                 required={false}
                 onChange={e => updateFormValue('username', e.target.value)}
               />
+
               <SmallTextField
                 {...commonInputProps}
                 id="git_password"
@@ -345,24 +513,68 @@ function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
                 label="Git password"
                 type="password"
                 required={false}
+                onChange={e => updateFormValue('password', e.target.value)}
               />
-            </Fragment>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button variant="contained" color="error" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={!validated}
-            type="submit"
-          >
-            Create Environment
-          </Button>
-        </DialogActions>
-      </Dialog>
+            </AccordionDetails>
+          </Accordion>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button variant="contained" color="error" onClick={handleClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          disabled={!validated}
+          type="submit"
+        >
+          {isRebuild ? 'Rebuild Environment' : 'Create Environment'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+export const EnvironmentFormDialog = memo(_EnvironmentFormDialog);
+
+export interface INewEnvironmentDialogProps extends IEnvironmentDialogConfigProps {
+  onRefresh?: () => void;
+}
+
+function _NewEnvironmentDialog(props: INewEnvironmentDialogProps) {
+  const { onRefresh } = props;
+  const [open, setOpen] = useState(false);
+  const handleOpen = () => setOpen(true);
+  const handleClose = useCallback(() => setOpen(false), []);
+  const handleRefreshClick = useCallback(() => onRefresh?.(), [onRefresh]);
+
+  return (
+    <Fragment>
+      <Box sx={{ display: 'flex', flexDirection: 'row-reverse' }}>
+        <Button onClick={handleRefreshClick} variant="outlined">
+          <RefreshIcon />
+        </Button>
+        <Button onClick={handleOpen} variant="contained">
+          Create new environment
+        </Button>
+      </Box>
+
+      {/* Mount on demand so the form state is reset on every open instead of
+          keeping the values typed during the previous creation. */}
+      {open && (
+        <EnvironmentFormDialog
+          open={open}
+          onClose={handleClose}
+          onRefresh={props.onRefresh}
+          default_cpu_limit={props.default_cpu_limit}
+          default_mem_limit={props.default_mem_limit}
+          machine_profiles={props.machine_profiles}
+          node_selector={props.node_selector}
+          use_binderhub={props.use_binderhub}
+          repo_providers={props.repo_providers}
+        />
+      )}
     </Fragment>
   );
 }

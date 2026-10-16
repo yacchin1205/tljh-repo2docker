@@ -2,13 +2,19 @@
 
 ![Github Actions Status](https://github.com/plasmabio/tljh-repo2docker/workflows/Tests/badge.svg)
 
-TLJH plugin provides a JupyterHub service to build and use Docker images as user environments. The Docker images can be built locally using [`repo2docker`](https://repo2docker.readthedocs.io/en/latest/) or via the [`binderhub`](https://binderhub.readthedocs.io/en/latest/) service.
+This service allows users to create and use Docker images for their JupyterHub environments, using repositories from platforms like GitHub or GitLab. It can be deployed as part of The Littlest JupyterHub (TLJH) or as a standalone service in any JupyterHub setup.
+The Docker images can be built locally using [`repo2docker`](https://repo2docker.readthedocs.io/en/latest/) or via the [`binderhub`](https://binderhub.readthedocs.io/en/latest/) service.
 
 ## Requirements
 
-This plugin requires [The Littlest JupyterHub](https://tljh.jupyter.org) 1.0 or later (running on JupyterHub 4+).
+This plugin requires:
+
+- JupyterHub 1.0 or later (running on JupyterHub 4+).
+- Optional: [The Littlest JupyterHub](https://tljh.jupyter.org)
 
 ## Installation
+
+### TLJH Installation (Optional)
 
 During the [TLJH installation process](http://tljh.jupyter.org/en/latest/install/index.html), use the following post-installation script:
 
@@ -25,7 +31,7 @@ sudo apt-get update
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 sudo chmod a+r /etc/apt/keyrings/nodesource.gpg
 
-NODE_MAJOR=21
+NODE_MAJOR=22
 echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | \
  sudo tee /etc/apt/sources.list.d/nodesource.list
 sudo apt update
@@ -38,17 +44,12 @@ sudo modprobe fuse
 sudo docker pull gcr.io/nii-ap-ops/repo2docker:2026.07.2
 sudo docker pull gcr.io/nii-ap-ops/rdmfs:2026.02.1
 
-# install TLJH 1.0
+# install TLJH 2.0
 curl -L https://tljh.jupyter.org/bootstrap.py \
   | sudo python3 - \
-    --version 1.0.0 \
+    --version 2.0.0 \
     --admin admin:change-your-password \
     --plugin git+https://github.com/RCOSDP/CS-tljh-repo2docker.git@master
-
-# Workaround: upgrade to the latest version of jupyterhub
-# Because an older version of jupyterhub is installed together with CS-binderhub,
-# upgrade jupyterhub after the installation of the plugin
-sudo /opt/tljh/hub/bin/pip install --upgrade jupyterhub\<5
 
 # configure the plugin
 cat <<'EOF' | sudo tee /opt/tljh/config/jupyterhub_config.d/repo2docker.py
@@ -309,7 +310,6 @@ c.JupyterHub.services.extend(
                 '{"label": "Medium", "cpu": 4, "memory": 4}',
                 "--machine_profiles",
                 '{"label": "Large", "cpu": 8, "memory": 8}'
-
             ],
             "oauth_no_confirm": True,
         }
@@ -318,6 +318,60 @@ c.JupyterHub.services.extend(
 ```
 
 ![image](https://github.com/plasmabio/tljh-repo2docker/assets/4451292/c1f0231e-a02d-41dc-85e0-97a97ffa0311)
+
+### Node Selector
+
+`tljh-repo2docker` allows specifying node selectors to control which Kubernetes nodes user environments are scheduled on. This can be useful for assigning workloads to specific nodes based on hardware characteristics like GPUs, SSD storage, or other node labels.
+
+## Configuring Node Selectors
+
+To configure node selectors, add the `--node_selector` argument in the service definition:
+
+```python
+c.JupyterHub.services.extend(
+    [
+        {
+            "name": "tljh_repo2docker",
+            "url": "http://127.0.0.1:6789",
+            "command": [
+                sys.executable,
+                "-m",
+                "tljh_repo2docker",
+                "--ip",
+                "127.0.0.1",
+                "--port",
+                "6789",
+                "--node_selector",
+                '{"gpu": {"description": "GPU availability", "values": ["yes", "no"]},'
+                ' "ssd": {"description": "SSD availability", "values": ["yes", "no"]}}'
+            ],
+            "oauth_no_confirm": True,
+        }
+    ]
+)
+```
+
+This ensures that workloads are scheduled only on nodes that meet the specified criteria.
+
+## Accessing Node Selector in Spawner
+
+The node selector information is passed through the metadata field of `user_options` and can be accessed in the `start` method of the spawner:
+
+```python
+user_options["metadata"]["node_selector"]
+```
+
+![node_selector](https://github.com/user-attachments/assets/046bee93-2c7c-4e42-a9a0-94ade6f191d9)
+
+### Direct link to server
+
+You can create a direct link to launch a single-user server with a custom environment using the following format:
+
+```
+https://<jupyterhub-server>/services/tljhrepo2docker/servers?name=foo&environment=bar
+```
+
+This link will start a server named `foo` using the `bar` environment. If a server with the same name already exists, it will open automatically; otherwise, `tljh-repo2docker` will initiate a new server for you.
 
 ### Extra documentation
 

@@ -1,7 +1,54 @@
+from uuid import UUID, uuid4
+
 import pytest
+import sqlalchemy as sa
 from aiodocker import Docker, DockerError
 
-from ..utils import add_environment, remove_environment, wait_for_image
+from tljh_repo2docker.database.model import DockerImageSQL
+from tljh_repo2docker.database.schemas import BuildStatusType
+
+from ..utils import (
+    add_environment,
+    api_request,
+    remove_environment,
+    wait_for_build_status,
+    wait_for_image,
+)
+
+
+def _insert_image_row(*, uid, name, status, display_name=None, repo="https://example.com/repo", ref="HEAD"):
+    """Insert an image row directly in the sqlite DB used by the test service."""
+    engine = sa.create_engine("sqlite:///test_tljh_repo2docker.sqlite")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.insert(DockerImageSQL).values(
+                uid=uid,
+                name=name,
+                status=status.value if hasattr(status, "value") else status,
+                log="",
+                image_meta={
+                    "display_name": display_name or name.split(":")[0],
+                    "repo": repo,
+                    "ref": ref,
+                    "creation_date": "01/01/2025",
+                    "owner": "admin",
+                    "cpu_limit": "",
+                    "mem_limit": "",
+                    "node_selector": {},
+                },
+            )
+        )
+    engine.dispose()
+
+
+def _read_image_row(uid):
+    engine = sa.create_engine("sqlite:///test_tljh_repo2docker.sqlite")
+    with engine.begin() as conn:
+        row = conn.execute(
+            sa.select(DockerImageSQL).where(DockerImageSQL.uid == uid)
+        ).first()
+    engine.dispose()
+    return row
 
 
 @pytest.mark.asyncio
@@ -10,12 +57,9 @@ async def test_add_environment(app, minimal_repo, image_name):
     r = await add_environment(app, repo=minimal_repo, name=name, ref=ref)
     assert r.status_code == 200
     image = await wait_for_image(image_name=image_name)
-    image_config = image.get("ContainerConfig", None)
-    if image_config is None:
-        image_config = image.get("Config", {})
-    assert (
-        image_config["Labels"]["tljh_repo2docker.image_name"] == image_name
-    )
+    assert image is not None, "Docker image was not found after build"
+    config = image.get("ContainerConfig", image.get("Config", {}))
+    assert config["Labels"]["tljh_repo2docker.image_name"] == image_name
 
 
 @pytest.mark.asyncio
@@ -44,13 +88,8 @@ async def test_uppercase_repo(app, minimal_repo_uppercase, generated_image_name)
     r = await add_environment(app, repo=minimal_repo_uppercase)
     assert r.status_code == 200
     image = await wait_for_image(image_name=generated_image_name)
-    image_config = image.get("ContainerConfig", None)
-    if image_config is None:
-        image_config = image.get("Config", {})
-    assert (
-        image_config["Labels"]["tljh_repo2docker.image_name"]
-        == generated_image_name
-    )
+    config = image.get("ContainerConfig", image.get("Config", {}))
+    assert config["Labels"]["tljh_repo2docker.image_name"] == generated_image_name
 
 
 @pytest.mark.asyncio
@@ -62,22 +101,217 @@ async def test_no_repo(app, image_name):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "memory, cpu",
+    "memory, cpu, node_selector, expected_error",
     [
-        ("abcded", ""),
-        ("", "abcde"),
+        ("abcded", "", {"key": "value"}, "must be a number"),
+        ("", "abcde", {"key": "value"}, "must be a number"),
+        ("-1", "", {"key": "value"}, "must be a positive number"),
+        ("", "-2", {"key": "value"}, "must be a positive number"),
+        ("0", "", {"key": "value"}, "must be a positive number"),
+        ("", "0", {"key": "value"}, "must be a positive number"),
     ],
 )
-async def test_wrong_limits(app, minimal_repo, image_name, memory, cpu):
+async def test_wrong_limits(
+    app, minimal_repo, image_name, memory, cpu, node_selector, expected_error
+):
     name, ref = image_name.split(":")
     r = await add_environment(
-        app, repo=minimal_repo, name=name, ref=ref, memory=memory, cpu=cpu
+        app,
+        repo=minimal_repo,
+        name=name,
+        ref=ref,
+        memory=memory,
+        cpu=cpu,
+        node_selector=node_selector,
     )
     assert r.status_code == 400
-    assert "must be a number" in r.text
+    assert expected_error in r.text
 
 
 @pytest.mark.asyncio
 async def test_wrong_name(app, minimal_repo):
     r = await add_environment(app, repo=minimal_repo, name="#WRONG_NAME#")
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_build_response_contains_uid(app, minimal_repo, image_name):
+    name, ref = image_name.split(":")
+    r = await add_environment(app, repo=minimal_repo, name=name, ref=ref)
+    assert r.status_code == 200
+    data = r.json()
+    assert "uid" in data
+    assert data["uid"]
+    await wait_for_image(image_name=image_name)
+
+
+@pytest.mark.asyncio
+async def test_delete_by_uid(app, minimal_repo, image_name):
+    name, ref = image_name.split(":")
+    r = await add_environment(app, repo=minimal_repo, name=name, ref=ref)
+    assert r.status_code == 200
+    uid = r.json()["uid"]
+    await wait_for_image(image_name=image_name)
+
+    r = await remove_environment(app, image_name=uid)
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_rebuild_unknown_uid_returns_404(app, minimal_repo):
+    r = await add_environment(
+        app,
+        repo=minimal_repo,
+        name="ghost",
+        ref="HEAD",
+        uid=str(uuid4()),
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_rebuild_with_mismatched_name_returns_400(app, minimal_repo):
+    uid = uuid4()
+    _insert_image_row(
+        uid=uid,
+        name="original:HEAD",
+        display_name="original",
+        status=BuildStatusType.BUILT,
+        repo=minimal_repo,
+    )
+    r = await add_environment(
+        app,
+        repo=minimal_repo,
+        name="otherword",
+        ref="HEAD",
+        uid=str(uid),
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_rebuild_while_building_returns_409(app, minimal_repo):
+    uid = uuid4()
+    _insert_image_row(
+        uid=uid,
+        name="busy:HEAD",
+        display_name="busy",
+        status=BuildStatusType.BUILDING,
+        repo=minimal_repo,
+    )
+    r = await add_environment(
+        app,
+        repo=minimal_repo,
+        name="busy",
+        ref="HEAD",
+        uid=str(uid),
+    )
+    assert r.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_rebuild_existing_env_reuses_uid(app, minimal_repo, image_name):
+    name, ref = image_name.split(":")
+    r = await add_environment(app, repo=minimal_repo, name=name, ref=ref)
+    assert r.status_code == 200
+    uid = r.json()["uid"]
+    await wait_for_image(image_name=image_name)
+    # The image is tagged before the DB status flips to BUILT; wait for the
+    # persisted status so the rebuild below isn't rejected with 409.
+    assert await wait_for_build_status(app, uid=uid) is not None
+
+    # Remove the locally built image so wait_for_image after rebuild has
+    # something to look for.
+    async with Docker() as docker:
+        try:
+            await docker.images.delete(image_name, force=True)
+        except DockerError:
+            pass
+
+    r = await add_environment(
+        app, repo=minimal_repo, name=name, ref=ref, uid=uid
+    )
+    assert r.status_code == 200
+    assert r.json()["uid"] == uid
+    image = await wait_for_image(image_name=image_name)
+    assert image is not None
+
+    # Confirm the DB row was kept in place rather than duplicated.
+    row = _read_image_row(UUID(uid))
+    assert row is not None
+
+
+@pytest.mark.asyncio
+async def test_get_environments_returns_json(app, minimal_repo, image_name):
+    name, ref = image_name.split(":")
+    r = await add_environment(app, repo=minimal_repo, name=name, ref=ref)
+    assert r.status_code == 200
+    await wait_for_image(image_name=image_name)
+
+    r = await api_request(app, "environments", method="get")
+    assert r.status_code == 200
+    payload = r.json()
+    assert "images" in payload
+    assert isinstance(payload["images"], list)
+    entries_with_name = [
+        img for img in payload["images"] if img.get("display_name") == name
+    ]
+    assert entries_with_name, payload
+    entry = entries_with_name[0]
+    for field in ("image_name", "status", "repo", "ref"):
+        assert field in entry
+
+
+@pytest.mark.asyncio
+async def test_build_image_list_dedupes_rebuilding_image(monkeypatch):
+    from tljh_repo2docker import environments
+
+    async def fake_list_images():
+        return [{"image_name": "env:HEAD", "status": "built"}]
+
+    async def fake_list_containers():
+        return [{"image_name": "env:HEAD", "status": "building"}]
+
+    monkeypatch.setattr(environments, "list_images", fake_list_images)
+    monkeypatch.setattr(environments, "list_containers", fake_list_containers)
+
+    class _Handler:
+        use_binderhub = False
+        settings: dict = {}
+
+    result = await environments.build_image_list(_Handler())
+    assert result == [{"image_name": "env:HEAD", "status": "building"}]
+
+
+@pytest.mark.asyncio
+async def test_get_environments_serializes_db_only_entries(app):
+    # DB-only rows (no matching Docker image) exercise the _enrich_with_db
+    # `extra` branch. They carry an enum status and image_meta fields that
+    # must all be JSON-serializable.
+    failed_uid = uuid4()
+    building_uid = uuid4()
+    _insert_image_row(
+        uid=failed_uid,
+        name="failed-only:abc",
+        status=BuildStatusType.FAILED,
+        display_name="failed-only",
+    )
+    _insert_image_row(
+        uid=building_uid,
+        name="building-only:abc",
+        status=BuildStatusType.BUILDING,
+        display_name="building-only",
+    )
+
+    r = await api_request(app, "environments", method="get")
+    assert r.status_code == 200
+    payload = r.json()
+
+    by_name = {img.get("display_name"): img for img in payload["images"]}
+    assert "failed-only" in by_name, payload
+    assert "building-only" in by_name, payload
+
+    assert by_name["failed-only"]["status"] == BuildStatusType.FAILED.value
+    assert by_name["failed-only"]["uid"] == str(failed_uid)
+    assert by_name["building-only"]["status"] == BuildStatusType.BUILDING.value
+    assert by_name["building-only"]["uid"] == str(building_uid)

@@ -71,10 +71,10 @@ class BinderHubLogsHandler(BaseHandler):
                     current_log_length = len(image.log)
                 status = image.status
                 if status == BuildStatusType.FAILED:
-                    await self._emit({"phase": "error", "message": ""})
+                    await self._emit({"phase": "error", "message": image.log})
                     break
                 if status == BuildStatusType.BUILT:
-                    await self._emit({"phase": "built", "message": ""})
+                    await self._emit({"phase": "built", "message": image.log})
                     break
 
     async def _emit(self, msg):

@@ -1,15 +1,21 @@
 from datetime import datetime
 import json
 import os
-import re
+from uuid import uuid4
 
 from traitlets.config import Config
 from .base import BaseHandler, require_admin_role
-from aiodocker import Docker, DockerError
+from aiodocker import DockerError
 from tornado import web
 from tornado.httpclient import AsyncHTTPClient
 
 from .docker import build_image
+from .database.schemas import (
+    BuildStatusType,
+    DockerImageCreateSchema,
+    DockerImageUpdateSchema,
+    ImageMetadataType,
+)
 from .token import TokenStore
 
 
@@ -18,7 +24,6 @@ class LaunchHandler(BaseHandler):
     Handle requests from GRDM to build user environments as Docker images
     """
     def initialize(self, repo_providers, token_store_path):
-        self.log = self.settings['log']
         self.service_prefix = self.settings['service_prefix']
         self.repo_providers = repo_providers
         self.token_store = TokenStore(dbpath=token_store_path)
@@ -26,7 +31,7 @@ class LaunchHandler(BaseHandler):
     @web.authenticated
     @require_admin_role
     async def get(self, provider_prefix):
-        from binderhub.builder import _safe_build_slug, _generate_build_name
+        from binderhub.builder import _safe_build_slug
 
         current_user = await self.fetch_user()
         spec = self._get_spec_from_request(provider_prefix)
@@ -42,17 +47,11 @@ class LaunchHandler(BaseHandler):
 
         image_prefix = ''
         safe_build_slug = _safe_build_slug(provider.get_build_slug(), limit=255 - len(image_prefix))
-        build_name = _generate_build_name(provider.get_build_slug(), ref, prefix='build-')
         image_name = self.image_name = '{prefix}{build_slug}:{ref}'.format(
             prefix=image_prefix,
             build_slug=safe_build_slug,
             ref=ref
         ).replace('_', '-').lower()
-        memory = None
-        cpu = None
-        buildargs = None
-        username = None
-        password = None
         # repo_token is obtained above to authenticate provider access
         urlpath = self.get_argument('urlpath', None)
         if not repo:
@@ -73,15 +72,56 @@ class LaunchHandler(BaseHandler):
             optional_labels["user." + key[8:]] = "\t".join([v.decode("utf8") for v in values])
         optional_labels = await self._modify_labels(optional_labels, repo_token)
 
-        await build_image(
-            repo, ref, '', memory, cpu, username, password, [],
-            default_image_name=image_name,
-            repo2docker_image='gcr.io/nii-ap-ops/repo2docker:2026.07.2',
-            optional_envs=provider.get_optional_envs(access_token=repo_token),
-            optional_labels=optional_labels,
-        )
+        db_context = self.settings['db_context']
+        image_db_manager = self.settings['image_db_manager']
+        async with db_context() as db:
+            existing = await image_db_manager.read_by_image_name(db, image_name)
+            if existing and existing.status == BuildStatusType.BUILDING:
+                self.redirect(f'{self.service_prefix}environments')
+                return
+            uid = existing.uid if existing else uuid4()
+            image_meta = ImageMetadataType(
+                display_name=optional_labels.get('provider.display_name', image_name),
+                repo=optional_labels.get('provider.repo', repo),
+                ref=ref,
+                creation_date=datetime.now().strftime('%d/%m/%Y'),
+                owner=current_user.name,
+                cpu_limit='',
+                mem_limit='',
+                node_selector={},
+                provider=provider_prefix,
+            )
+            image_in = DockerImageCreateSchema(
+                uid=uid, name=image_name, status=BuildStatusType.BUILDING,
+                log='', image_meta=image_meta,
+            )
+            if existing:
+                await image_db_manager.update(
+                    db, DockerImageUpdateSchema(**image_in.model_dump())
+                )
+            else:
+                await image_db_manager.create(db, image_in)
 
+        # Finish the browser request before streaming the build into the database.
         self.redirect(f'{self.service_prefix}environments')
+        try:
+            await build_image(
+                repo=repo, ref=ref, owner=current_user.name,
+                default_image_name=image_name,
+                repo2docker_image='gcr.io/nii-ap-ops/repo2docker:2026.07.2',
+                optional_envs=provider.get_optional_envs(access_token=repo_token),
+                optional_labels=optional_labels,
+                uid=uid, db_context=db_context, image_db_manager=image_db_manager,
+            )
+        except DockerError as e:
+            async with db_context() as db:
+                await image_db_manager.update(
+                    db, DockerImageUpdateSchema(
+                        uid=uid, status=BuildStatusType.FAILED,
+                        log='Build failed. See service logs for details.',
+                    ),
+                )
+            raise web.HTTPError(500, 'Image build failed') from e
 
     def _get_provider(self, provider_prefix, spec):
         """Construct a provider object"""

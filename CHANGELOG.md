@@ -1,5 +1,25 @@
 # tljh-repo2docker Changelog
 
+## 2.0.0 - Highlights
+
+Below are the major highlights in tljh-repo2docker 2.0.0
+
+### tljh-repo2docker is now a JupyterHub service
+
+`tljh-repo2docker` can be started as a standalone or hub-managed service.
+
+### New UI to manage environments and user servers
+
+`tljh-repo2docker` 2.0 features a new UI based on React to build docker images and start user servers. Optional names, memory, and CPU limits can also be set for the environment, instead of entering directly the CPU and Memory value, `tljh-repo2docker` can be configured with pre-defined machine profiles and users can only choose from the available options.
+
+### New image build backend
+
+In addition to the local docker engine, `tljh-repo2docker` can use binderhub service as the image build backend
+
+### Backwards-incompatible changes.
+
+- `jupyterhub` < 5 is no longer supported
+
 ## 1.0.0 - Highlights
 
 The purpose of this release is to allow for better compatibility of the plugin with different versions of The Littlest JupyterHub.
@@ -15,7 +35,7 @@ In short:
 
 You can find below the list of changes since the creation of the plugin.
 
-## What's Changed
+### What's Changed
 
 - Add installation instructions to the README by @jtpio in https://github.com/plasmabio/tljh-repo2docker/pull/1
 - Fix manifest by @jtpio in https://github.com/plasmabio/tljh-repo2docker/pull/2
@@ -48,7 +68,7 @@ You can find below the list of changes since the creation of the plugin.
 - Pin `notebook<7` and `sqlalchemy<2` for now by @jtpio in https://github.com/plasmabio/tljh-repo2docker/pull/62
 - Resolve 'Show Logs' issue by adding \_xsrf token by @yamaton in https://github.com/plasmabio/tljh-repo2docker/pull/61
 
-## New Contributors
+### New Contributors
 
 - @jtpio made their first contribution in https://github.com/plasmabio/tljh-repo2docker/pull/1
 - @pierrepo made their first contribution in https://github.com/plasmabio/tljh-repo2docker/pull/33
@@ -58,6 +78,541 @@ You can find below the list of changes since the creation of the plugin.
 **Full Changelog**: https://github.com/plasmabio/tljh-repo2docker/commits/v1
 
 <!-- <START NEW CHANGELOG ENTRY> -->
+
+## 3.0.18
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.17...85666a8b03ba5294fee8124d4dd09922fa88b527))
+
+### Merged PRs
+
+- Fix/rebuild provider hardware [#2287](https://github.com/plasmabio/tljh-repo2docker/pull/2287) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-09-07&to=2026-10-06&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-09-07..2026-10-06&type=Issues))
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
+## 3.0.17
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.16...c010d1a810c7d54198ce26ec6b847217ff1bad0a))
+
+### Merged PRs
+
+- Upgrade JavaScript dependencies [#2214](https://github.com/plasmabio/tljh-repo2docker/pull/2214) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-07-29&to=2026-09-07&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-07-29..2026-09-07&type=Issues))
+
+## 3.0.16
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.15))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-06-15&to=2026-07-29&type=c))
+
+## 3.0.15
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.14...deee0be24f99146a6e61f783f3855ebd08602e6a))
+
+### Merged PRs
+
+- Fix rebuild showing the environment twice [#201](https://github.com/plasmabio/tljh-repo2docker/pull/201) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-06-15&to=2026-06-15&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-06-15..2026-06-15&type=Issues))
+
+## 3.0.14
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.13...7330e8c72fdc96b1ee72923aa77874a29e56b0ee))
+
+### Merged PRs
+
+- Fixes [#200](https://github.com/plasmabio/tljh-repo2docker/pull/200) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-06-11&to=2026-06-15&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-06-11..2026-06-15&type=Issues))
+
+## 3.0.13
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.12...ef5a180b7cad07935cda297481debb6717ce5c67))
+
+### Merged PRs
+
+- Fix environment dialog bugs [#199](https://github.com/plasmabio/tljh-repo2docker/pull/199) ([@djangoliv](https://github.com/djangoliv))
+- upgrade js libs [#198](https://github.com/plasmabio/tljh-repo2docker/pull/198) ([@djangoliv](https://github.com/djangoliv))
+- fix(tests): wait for built status before rebuild to fix flaky test [#197](https://github.com/plasmabio/tljh-repo2docker/pull/197) ([@djangoliv](https://github.com/djangoliv))
+- Refresh [#196](https://github.com/plasmabio/tljh-repo2docker/pull/196) ([@djangoliv](https://github.com/djangoliv))
+- Feats [#195](https://github.com/plasmabio/tljh-repo2docker/pull/195) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-05-28&to=2026-06-11&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-05-28..2026-06-11&type=Issues))
+
+## 3.0.12
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.11...ebb8bf9b7c01ced97a4f50ef69ac0ee7b6c73024))
+
+### Merged PRs
+
+- Robustness [#194](https://github.com/plasmabio/tljh-repo2docker/pull/194) ([@djangoliv](https://github.com/djangoliv))
+- Security [#192](https://github.com/plasmabio/tljh-repo2docker/pull/192) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-05-05&to=2026-05-28&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-05-05..2026-05-28&type=Issues))
+
+## 3.0.11
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.10...6f35dadd102aebc279e0f7da50f5fc0abd21deb6))
+
+### Merged PRs
+
+- feat(spawn): support dark mode in image table [#189](https://github.com/plasmabio/tljh-repo2docker/pull/189) ([@djangoliv](https://github.com/djangoliv))
+- upgrade k8s-hub image [#188](https://github.com/plasmabio/tljh-repo2docker/pull/188) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-04-24&to=2026-05-05&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-04-24..2026-05-05&type=Issues))
+
+## 3.0.10
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.9...b8916c67b03d1c0d30c5e053821ea0be2d41d4f7))
+
+### Merged PRs
+
+- chore(deps): update brace-expansion to 5.0.5 (CVE-2026-33750) [#187](https://github.com/plasmabio/tljh-repo2docker/pull/187) ([@djangoliv](https://github.com/djangoliv))
+- Database [#186](https://github.com/plasmabio/tljh-repo2docker/pull/186) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-04-21&to=2026-04-24&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-04-21..2026-04-24&type=Issues)) | @trungleduc ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2026-04-21..2026-04-24&type=Issues))
+
+## 3.0.9
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.8...a6667bfc9466c6bd6df1626937100710f14922d7))
+
+### Merged PRs
+
+- upgrade js libs [#185](https://github.com/plasmabio/tljh-repo2docker/pull/185) ([@djangoliv](https://github.com/djangoliv))
+- upgrade libs [#178](https://github.com/plasmabio/tljh-repo2docker/pull/178) ([@djangoliv](https://github.com/djangoliv))
+- Fixes [#177](https://github.com/plasmabio/tljh-repo2docker/pull/177) ([@djangoliv](https://github.com/djangoliv))
+- Bump minimatch from 10.1.1 to 10.2.4 in /ui-tests [#174](https://github.com/plasmabio/tljh-repo2docker/pull/174) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-03-03&to=2026-04-21&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-03-03..2026-04-21&type=Issues))
+
+## 3.0.8
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.7...1cf8c135b01ad98439f1d2667743478b527fce72))
+
+### Merged PRs
+
+- Table UI fixes [#175](https://github.com/plasmabio/tljh-repo2docker/pull/175) ([@djangoliv](https://github.com/djangoliv))
+- Bump version in example/Dockerfile [#172](https://github.com/plasmabio/tljh-repo2docker/pull/172) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-02-23&to=2026-03-03&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-02-23..2026-03-03&type=Issues))
+
+## 3.0.7
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.6...259d1b6d2775cd36bd96e33a8091dd2fd5e4a896))
+
+### Merged PRs
+
+- Fixes [#170](https://github.com/plasmabio/tljh-repo2docker/pull/170) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-02-20&to=2026-02-23&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-02-20..2026-02-23&type=Issues))
+
+## 3.0.6
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.5...346f02e7d5674bb4dea12e63a35cc6e1044312a7))
+
+### Merged PRs
+
+- feat: modernize spawn page [#168](https://github.com/plasmabio/tljh-repo2docker/pull/168) ([@djangoliv](https://github.com/djangoliv))
+- UI evol [#166](https://github.com/plasmabio/tljh-repo2docker/pull/166) ([@djangoliv](https://github.com/djangoliv))
+- upgrade js libs [#165](https://github.com/plasmabio/tljh-repo2docker/pull/165) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-01-13&to=2026-02-20&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-01-13..2026-02-20&type=Issues))
+
+## 3.0.5
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.4...2d124160ed71107c1bf08d9f8068883b61620cd8))
+
+### Merged PRs
+
+- update screenshots [#161](https://github.com/plasmabio/tljh-repo2docker/pull/161) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-01-13&to=2026-01-13&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-01-13..2026-01-13&type=Issues))
+
+## 3.0.4
+
+No merged PRs
+
+## 3.0.3
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.2...df4b514f1b8953b85bcb0279e33d5bb8cf5b0970))
+
+### Merged PRs
+
+- fix unit test on python 3.12 [#160](https://github.com/plasmabio/tljh-repo2docker/pull/160) ([@djangoliv](https://github.com/djangoliv))
+- add the creation date to environments table [#154](https://github.com/plasmabio/tljh-repo2docker/pull/154) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2026-01-07&to=2026-01-13&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2026-01-07..2026-01-13&type=Issues)) | @trungleduc ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2026-01-07..2026-01-13&type=Issues))
+
+## 3.0.2
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.1...c7355d7b4c68822d337aa3bb0c31a25990d0024f))
+
+### Merged PRs
+
+- add the possibility to add custom links in the header [#153](https://github.com/plasmabio/tljh-repo2docker/pull/153) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-12-29&to=2026-01-07&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2025-12-29..2026-01-07&type=Issues)) | @trungleduc ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-12-29..2026-01-07&type=Issues))
+
+## 3.0.1
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0...fad5554e2cac7c56eacfa9f7b31ef179529ba2aa))
+
+### Merged PRs
+
+- Fixes [#147](https://github.com/plasmabio/tljh-repo2docker/pull/147) ([@djangoliv](https://github.com/djangoliv), [@SylvainCorlay](https://github.com/SylvainCorlay))
+- upgrade playwright [#146](https://github.com/plasmabio/tljh-repo2docker/pull/146) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+- fix: update changelog for 3.0.0 [#144](https://github.com/plasmabio/tljh-repo2docker/pull/144) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+- upgrade tests dependencies [#143](https://github.com/plasmabio/tljh-repo2docker/pull/143) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+- Upgrade [#141](https://github.com/plasmabio/tljh-repo2docker/pull/141) ([@djangoliv](https://github.com/djangoliv), [@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-12-04&to=2025-12-29&type=c))
+
+@djangoliv ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2025-12-04..2025-12-29&type=Issues)) | @SylvainCorlay ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3ASylvainCorlay+updated%3A2025-12-04..2025-12-29&type=Issues)) | @trungleduc ([activity](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-12-04..2025-12-29&type=Issues))
+
+## 3.0.0
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v2.0.0...e070973260589d10f79cfe3da9781f773428c59f))
+
+### Merged PRs
+
+- fix tests [#142](https://github.com/plasmabio/tljh-repo2docker/pull/142) ([@djangoliv](https://github.com/djangoliv))
+- fix starting inactive server [#121](https://github.com/plasmabio/tljh-repo2docker/pull/121) ([@trungleduc](https://github.com/trungleduc))
+- fix again [#120](https://github.com/plasmabio/tljh-repo2docker/pull/120) ([@trungleduc](https://github.com/trungleduc))
+- fix server data [#118](https://github.com/plasmabio/tljh-repo2docker/pull/118) ([@trungleduc](https://github.com/trungleduc))
+- add url query to server endpoint [#117](https://github.com/plasmabio/tljh-repo2docker/pull/117) ([@trungleduc](https://github.com/trungleduc))
+- hot fix [#116](https://github.com/plasmabio/tljh-repo2docker/pull/116) ([@trungleduc](https://github.com/trungleduc))
+- Bump brace-expansion from 2.0.1 to 2.0.2 in /ui-tests [#110](https://github.com/plasmabio/tljh-repo2docker/pull/110) ([@dependabot](https://github.com/dependabot))
+- Bump axios from 1.7.4 to 1.8.2 [#107](https://github.com/plasmabio/tljh-repo2docker/pull/107) ([@dependabot](https://github.com/dependabot))
+- Add min Python version and trove classifiers [#105](https://github.com/plasmabio/tljh-repo2docker/pull/105) ([@jtpio](https://github.com/jtpio))
+- Allow buildkit-built images to execute [#103](https://github.com/plasmabio/tljh-repo2docker/pull/103) ([@holzman](https://github.com/holzman))
+- Make new node_selector Label optional [#102](https://github.com/plasmabio/tljh-repo2docker/pull/102) ([@TimoRoth](https://github.com/TimoRoth))
+- Update `dockerspawner` and `aiodocker`, TLJH 2.0 [#104](https://github.com/plasmabio/tljh-repo2docker/pull/104) ([@jtpio](https://github.com/jtpio))
+- Add node selector [#99](https://github.com/plasmabio/tljh-repo2docker/pull/99) ([@Meriem-BenIsmail](https://github.com/Meriem-BenIsmail))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-03&to=2025-12-03&type=c))
+
+[@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-10-03..2025-12-03&type=Issues) | [@djangoliv](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2025-10-03..2025-12-03&type=Issues) | [@dependabot](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adependabot+updated%3A2025-06-11..2025-12-03&type=Issues) | [@holzman](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Aholzman+updated%3A2025-06-11..2025-12-03&type=Issues) | [@Meriem-BenIsmail](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3AMeriem-BenIsmail+updated%3A2025-06-11..2025-12-03&type=Issues) | [@TimoRoth](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3ATimoRoth+updated%3A2025-06-11..2025-12-03&type=Issues) | [@jtpio](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Ajtpio+updated%3A2025-06-11..2025-12-03&type=Issues)
+
+## 3.0.0b6
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0b5...e070973260589d10f79cfe3da9781f773428c59f))
+
+### Merged PRs
+
+- fix tests [#142](https://github.com/plasmabio/tljh-repo2docker/pull/142) ([@djangoliv](https://github.com/djangoliv))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-03&to=2025-12-03&type=c))
+
+[@djangoliv](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adjangoliv+updated%3A2025-10-03..2025-12-03&type=Issues)
+
+## 3.0.0b5
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0b4...d2acfdf05aef5ce55faede8671496b2451f89a8d))
+
+### Merged PRs
+
+- fix starting inactive server [#121](https://github.com/plasmabio/tljh-repo2docker/pull/121) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-03&to=2025-10-03&type=c))
+
+[@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-10-03..2025-10-03&type=Issues)
+
+## 3.0.0b4
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0b3...fea11917bacc41ebfb2b2438ae9f9d89d22f9595))
+
+### Merged PRs
+
+- fix again [#120](https://github.com/plasmabio/tljh-repo2docker/pull/120) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-03&to=2025-10-03&type=c))
+
+[@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-10-03..2025-10-03&type=Issues)
+
+## 3.0.0b3
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0b2...27e67a3f821fbfede7db1730cefdd462c978dd31))
+
+### Merged PRs
+
+- again [#119](https://github.com/plasmabio/tljh-repo2docker/pull/119) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-03&to=2025-10-03&type=c))
+
+[@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-10-03..2025-10-03&type=Issues)
+
+## 3.0.0b2
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0b1...fc8cd677acaf7611396c5bd242279f8b46f7c387))
+
+### Bugs fixed
+
+- fix server data [#118](https://github.com/plasmabio/tljh-repo2docker/pull/118) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-03&to=2025-10-03&type=c))
+
+[@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-10-03..2025-10-03&type=Issues)
+
+## 3.0.0b1
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0b0...ec7d55f37b3cf963d1174b323e509b7670762f51))
+
+### Enhancements made
+
+- add url query to server endpoint [#117](https://github.com/plasmabio/tljh-repo2docker/pull/117) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-10-02&to=2025-10-03&type=c))
+
+[@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-10-02..2025-10-03&type=Issues)
+
+## 3.0.0b0
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v3.0.0a0...56f2b0c4e8e2165608765e93c985c040ab1593f8))
+
+### Merged PRs
+
+- hot fix [#116](https://github.com/plasmabio/tljh-repo2docker/pull/116) ([@trungleduc](https://github.com/trungleduc))
+- Bump brace-expansion from 2.0.1 to 2.0.2 in /ui-tests [#110](https://github.com/plasmabio/tljh-repo2docker/pull/110) ([@dependabot](https://github.com/dependabot))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-06-11&to=2025-10-02&type=c))
+
+[@dependabot](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adependabot+updated%3A2025-06-11..2025-10-02&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-06-11..2025-10-02&type=Issues)
+
+## 3.0.0a0
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v2.0.0...53522d32f83d39d783d7e149b0b58b84227c8e6b))
+
+### Maintenance and upkeep improvements
+
+- Update `dockerspawner` and `aiodocker`, TLJH 2.0 [#104](https://github.com/plasmabio/tljh-repo2docker/pull/104) ([@jtpio](https://github.com/jtpio))
+
+### Other merged PRs
+
+- Bump @babel/runtime from 7.24.0 to 7.27.6 [#108](https://github.com/plasmabio/tljh-repo2docker/pull/108) ([@dependabot](https://github.com/dependabot))
+- Bump axios from 1.7.4 to 1.8.2 [#107](https://github.com/plasmabio/tljh-repo2docker/pull/107) ([@dependabot](https://github.com/dependabot))
+- Add min Python version and trove classifiers [#105](https://github.com/plasmabio/tljh-repo2docker/pull/105) ([@jtpio](https://github.com/jtpio))
+- Allow buildkit-built images to execute [#103](https://github.com/plasmabio/tljh-repo2docker/pull/103) ([@holzman](https://github.com/holzman))
+- Make new node_selector Label optional [#102](https://github.com/plasmabio/tljh-repo2docker/pull/102) ([@TimoRoth](https://github.com/TimoRoth))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-03-05&to=2025-06-11&type=c))
+
+[@dependabot](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adependabot+updated%3A2025-03-05..2025-06-11&type=Issues) | [@holzman](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Aholzman+updated%3A2025-03-05..2025-06-11&type=Issues) | [@jtpio](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Ajtpio+updated%3A2025-03-05..2025-06-11&type=Issues) | [@TimoRoth](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3ATimoRoth+updated%3A2025-03-05..2025-06-11&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-03-05..2025-06-11&type=Issues)
+
+## 2.0.0
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v2.0.0a5...a7a69f45f86bb907ac3936d830dc96ff84ba8870))
+
+### Enhancements made
+
+- Add node selector [#99](https://github.com/plasmabio/tljh-repo2docker/pull/99) ([@Meriem-BenIsmail](https://github.com/Meriem-BenIsmail))
+
+### Documentation improvements
+
+- Update changelog [#100](https://github.com/plasmabio/tljh-repo2docker/pull/100) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-02-17&to=2025-03-05&type=c))
+
+[@Meriem-BenIsmail](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3AMeriem-BenIsmail+updated%3A2025-02-17..2025-03-05&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-02-17..2025-03-05&type=Issues)
+
+## 2.0.0a5
+
+No merged PRs
+
+## 2.0.0a4
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v2.0.0a3...1bd36bae9484728e02036bbeb190745b4be395e5))
+
+### Maintenance and upkeep improvements
+
+- [skip ci] run build-image in release env [#98](https://github.com/plasmabio/tljh-repo2docker/pull/98) ([@trungleduc](https://github.com/trungleduc))
+
+### Other merged PRs
+
+- Bump webpack from 5.90.3 to 5.98.0 [#95](https://github.com/plasmabio/tljh-repo2docker/pull/95) ([@dependabot](https://github.com/dependabot))
+- Bump axios from 1.6.7 to 1.7.4 [#94](https://github.com/plasmabio/tljh-repo2docker/pull/94) ([@dependabot](https://github.com/dependabot))
+- Bump braces from 3.0.2 to 3.0.3 [#93](https://github.com/plasmabio/tljh-repo2docker/pull/93) ([@dependabot](https://github.com/dependabot))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-02-17&to=2025-02-17&type=c))
+
+[@dependabot](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adependabot+updated%3A2025-02-17..2025-02-17&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-02-17..2025-02-17&type=Issues)
+
+## 2.0.0a3
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v2.0.0a2...f955d7a18f5e7e8a4c590370a1181d22aed39fd4))
+
+### Enhancements made
+
+- Restore self.log logger in BaseHandler [#96](https://github.com/plasmabio/tljh-repo2docker/pull/96) ([@TimoRoth](https://github.com/TimoRoth))
+
+### Maintenance and upkeep improvements
+
+- [skip ci] Add token for gh [#97](https://github.com/plasmabio/tljh-repo2docker/pull/97) ([@trungleduc](https://github.com/trungleduc))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2025-02-17&to=2025-02-17&type=c))
+
+[@TimoRoth](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3ATimoRoth+updated%3A2025-02-17..2025-02-17&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2025-02-17..2025-02-17&type=Issues)
+
+## 2.0.0a2
+
+([Full Changelog](https://github.com/plasmabio/tljh-repo2docker/compare/v2.0.0a1...36d6fbb0231498997c79dc254209554952d40025))
+
+### Documentation improvements
+
+- Add deployment example [#87](https://github.com/plasmabio/tljh-repo2docker/pull/87) ([@trungleduc](https://github.com/trungleduc))
+
+### Other merged PRs
+
+- Style adjusting with JupyterHub 5 [#91](https://github.com/plasmabio/tljh-repo2docker/pull/91) ([@Meriem-BenIsmail](https://github.com/Meriem-BenIsmail))
+- Build and push image [#90](https://github.com/plasmabio/tljh-repo2docker/pull/90) ([@trungleduc](https://github.com/trungleduc))
+- Make tljh_extra_hub_pip_packages hook match pyproject.toml [#88](https://github.com/plasmabio/tljh-repo2docker/pull/88) ([@TimoRoth](https://github.com/TimoRoth))
+- Bump follow-redirects from 1.15.5 to 1.15.6 [#79](https://github.com/plasmabio/tljh-repo2docker/pull/79) ([@dependabot](https://github.com/dependabot))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2024-05-15&to=2025-02-17&type=c))
+
+[@dependabot](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Adependabot+updated%3A2024-05-15..2025-02-17&type=Issues) | [@jtpio](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Ajtpio+updated%3A2024-05-15..2025-02-17&type=Issues) | [@Meriem-BenIsmail](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3AMeriem-BenIsmail+updated%3A2024-05-15..2025-02-17&type=Issues) | [@TimoRoth](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3ATimoRoth+updated%3A2024-05-15..2025-02-17&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2024-05-15..2025-02-17&type=Issues)
 
 ## 2.0.0a1
 
@@ -80,8 +635,6 @@ You can find below the list of changes since the creation of the plugin.
 ([GitHub contributors page for this release](https://github.com/plasmabio/tljh-repo2docker/graphs/contributors?from=2024-04-04&to=2024-05-15&type=c))
 
 [@jtpio](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Ajtpio+updated%3A2024-04-04..2024-05-15&type=Issues) | [@trungleduc](https://github.com/search?q=repo%3Aplasmabio%2Ftljh-repo2docker+involves%3Atrungleduc+updated%3A2024-04-04..2024-05-15&type=Issues)
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## 2.0.0a0
 

@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Base Setup
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
@@ -58,7 +58,7 @@ jobs:
           sudo rm -rf $(which node)
           sudo rm -rf $(which node)
 
-          python -m pip install git+https://github.com/jupyterhub/the-littlest-jupyterhub tljh_repo2docker*.whl
+          python -m pip install git+https://github.com/jupyterhub/the-littlest-jupyterhub@2.0.0 tljh_repo2docker*.whl
 
       - name: Test import
         run: python -c "import tljh_repo2docker"
@@ -70,11 +70,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11']
+        python-version: ['3.10', '3.12', '3.13', '3.14']
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Base Setup
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
@@ -114,7 +114,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Base Setup
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
@@ -130,12 +130,10 @@ jobs:
           python -m pip install -r dev-requirements.txt
           python -m pip install tljh_repo2docker*.whl
 
-          # Workaround: upgrade to the latest version of jupyterhub
-          # Because an older version of jupyterhub is installed together with CS-binderhub,
-          # upgrade jupyterhub after the installation of the plugin
-          python -m pip install --upgrade jupyterhub\<5
-
           npm -g install configurable-http-proxy
+
+      - name: Pre-pull repo2docker image
+        run: docker pull quay.io/jupyterhub/repo2docker:2025.12.0
 
       - name: Install UI test dependencies
         working-directory: ui-tests
@@ -144,15 +142,25 @@ jobs:
         run: npm install
 
       - name: Set up browser cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ${{ github.workspace }}/pw-browsers
-          key: ${{ runner.os }}-${{ hashFiles('ui-tests/package-lock.json') }}
+          key: ${{ runner.os }}-pw-${{ hashFiles('ui-tests/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pw-
 
       - name: Install browser
-        run: npx playwright install chromium
+        timeout-minutes: 5
         working-directory: ui-tests
+        run: |
+          for i in 1 2 3; do
+            npx playwright install chromium && exit 0
+            echo "Attempt $i failed, retrying after 10s..."
+            sleep 10
+          done
+          echo "playwright install chromium failed 3 times"
+          exit 1
 
       - name: Execute integration tests with ${{ matrix.build-backend }} build backend
         working-directory: ui-tests

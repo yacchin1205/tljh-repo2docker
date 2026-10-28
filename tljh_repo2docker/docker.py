@@ -287,7 +287,7 @@ async def build_image(
 
     config = {
         "Cmd": cmd,
-        "Image": repo2docker_image or "quay.io/jupyterhub/repo2docker:2025.12.0",
+        "Image": repo2docker_image or "docker.io/yacchin1205/repo2docker:feature_upstream-2026.04.0",
         "Labels": builder_labels,
         "Volumes": {
             "/var/run/docker.sock": {

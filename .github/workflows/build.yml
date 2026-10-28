@@ -59,6 +59,7 @@ jobs:
           sudo rm -rf $(which node)
 
           python -m pip install git+https://github.com/jupyterhub/the-littlest-jupyterhub@2.0.0 tljh_repo2docker*.whl
+          python -m pip install "jupyter-repo2docker @ git+https://github.com/yacchin1205/repo2docker.git@feature/upstream-2026.04.0"
 
       - name: Test import
         run: python -c "import tljh_repo2docker"
@@ -89,6 +90,7 @@ jobs:
           set -eux
           python -m pip install -r dev-requirements.txt
           python -m pip install tljh_repo2docker*.whl
+          python -m pip install "jupyter-repo2docker @ git+https://github.com/yacchin1205/repo2docker.git@feature/upstream-2026.04.0"
           npm -g install configurable-http-proxy
 
       - name: Run local build backend tests
@@ -129,6 +131,7 @@ jobs:
           set -eux
           python -m pip install -r dev-requirements.txt
           python -m pip install tljh_repo2docker*.whl
+          python -m pip install "jupyter-repo2docker @ git+https://github.com/yacchin1205/repo2docker.git@feature/upstream-2026.04.0"
 
           npm -g install configurable-http-proxy
 

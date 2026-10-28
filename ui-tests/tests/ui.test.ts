@@ -110,7 +110,7 @@ test.describe('tljh_repo2docker UI Tests', () => {
       .first()
       .click();
     await page.waitForSelector(
-      '//span[contains(text(), "Successfully tagged") or (contains(text(), "naming to ") and contains(text(), " done"))]',
+      '//span[contains(text(), "Successfully tagged") or contains(text(), "naming to docker")]',
       { timeout: BUILD_TIMEOUT }
     );
     expect(await page.screenshot()).toMatchSnapshot('environment-console.png', {

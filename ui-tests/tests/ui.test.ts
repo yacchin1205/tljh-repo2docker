@@ -212,7 +212,11 @@ test.describe('tljh_repo2docker UI Tests', () => {
     const accept = await page.getByRole('button', { name: 'Accept' });
     await accept.click();
     await page.waitForTimeout(2000);
-    await expect(page.getByRole('button', { name: 'Accept' })).toBeHidden();
+    // The dialog closes once the Docker image is deleted, which can take
+    // several seconds for a large image.
+    await expect(page.getByRole('button', { name: 'Accept' })).toBeHidden({
+      timeout: 60000
+    });
     await page.waitForTimeout(1000);
     await page.waitForURL('**/environments');
     await expect(await page.screenshot()).toMatchSnapshot(

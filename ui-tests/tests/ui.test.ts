@@ -110,7 +110,7 @@ test.describe('tljh_repo2docker UI Tests', () => {
       .first()
       .click();
     await page.waitForSelector(
-      '//span[contains(text(), "Successfully tagged") or (contains(text(), "naming to ") and contains(text(), " done"))]',
+      '//span[contains(text(), "Successfully tagged") or contains(text(), "naming to docker")]',
       { timeout: BUILD_TIMEOUT }
     );
     expect(await page.screenshot()).toMatchSnapshot('environment-console.png', {
@@ -126,9 +126,11 @@ test.describe('tljh_repo2docker UI Tests', () => {
     await expect(environment.locator('[data-field="owner"]')).toHaveText(
       'alice'
     );
+    // The log line above appears before the build finishes; the rebuild
+    // button is shown only once the build status is persisted.
     await expect(
       environment.getByRole('button', { name: 'Rebuild environment' })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: BUILD_TIMEOUT });
     const creationDate = environment.locator('[data-field="creation_date"]');
     await expect(creationDate).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/);
     // The build date changes between runs and is checked separately above.
